@@ -14,6 +14,12 @@
   이 12개 테스트는 구현 전까지 assertion에서 실패하는 것이 정상.
   구현 스텝은 스텁을 채워서(재생성 금지) 테스트를 green으로 만든다.
   devDependency 추가: `@types/node` (B2 node 환경 테스트용).
+- step 3: 에셋 — `public/backdrop.webp`(37KB, 1920x1080),
+  `public/works/vending-machine/object.webp`(42KB, 1024x1024, 알파 투명).
+  등록부 항목의 `object.src`는 `/works/vending-machine/object.webp`.
+  Blender 렌더 주의: vending-machine.blend 카메라에 Track-To 제약
+  (BubbleTarget 타깃) 있음 — 재렌더 시 제약 제거 후 카메라 조작.
+  .blend 파일은 읽기 전용 취급 (저장 금지).
 
 ## Baseline (applies unless overridden)
 

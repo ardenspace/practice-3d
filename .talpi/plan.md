@@ -9,7 +9,7 @@ Contracts: B1, B2, B3
 
 - [x] Vite + React + TS 프로젝트 스캐폴드 (bun, react-router, R3F 의존성 포함) + Vitest 셋업. dev 서버는 기본 5173 사용 (머신 점유 포트 8080/8000/8081/5000/7000 회피).
 - [x] B1·B2·B3 계약을 실패하는 테스트로 핀. B1의 "항목 N개 → 작품 방울 N개" 씬 보장은 등록부→방울 목록 파생 모듈 수준에서 핀한다 (early-pull: 이 단계에서 파생 모듈의 스텁이 생기고, 씬은 Phase 2에서 이 목록을 그대로 소비하는지 확인만 한다). B3 딥링크는 `vite preview` 환경 기준.
-- [ ] 에셋 준비: `renders/backdrop.png` → `public/backdrop.webp` 변환, `blender/vending-machine.blend`에서 정사각·투명 배경 오브제 이미지 렌더 → `public/works/vending-machine/` (Blender 백그라운드 렌더).
+- [x] 에셋 준비: `renders/backdrop.png` → `public/backdrop.webp` 변환, `blender/vending-machine.blend`에서 정사각·투명 배경 오브제 이미지 렌더 → `public/works/vending-machine/` (Blender 백그라운드 렌더).
 - [ ] 등록부 모듈 + 자판기 항목 구현 (B1 스키마: slug/title/blurb/object/Page) + 방울 목록 파생 모듈 완성.
 - [ ] 라우터 + 홈 임시 화면(배경+사이트 제목+작품 텍스트 링크) + `/works/<slug>` 페이지 셸(제목·blurb·오브제 이미지·홈 링크 — 자판기 v1 최소 구성) + 알 수 없는 경로 → 홈 리다이렉트.
 
