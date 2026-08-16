@@ -4,18 +4,22 @@ import { useNavigate } from 'react-router'
 import type { WebGLRenderer } from 'three'
 import { workPath } from '../works/registry.ts'
 import {
-  BACKDROP_SRC,
   COLOR_ACCENT_CYAN,
   COLOR_ACCENT_PINK,
-  COLOR_NEBULA_PURPLE,
-  COLOR_SPACE_BG,
-  COLOR_TEXT,
   HOME_TESTID,
   SITE_TITLE,
 } from '../theme.ts'
 import BubbleField from './BubbleField.tsx'
-import { CAMERA_FOV, CAMERA_Z } from './constants.ts'
+import {
+  AMBIENT_LIGHT_INTENSITY,
+  CAMERA_FOV,
+  CAMERA_Z,
+  POINT_LIGHT_CYAN_POSITION,
+  POINT_LIGHT_INTENSITY,
+  POINT_LIGHT_PINK_POSITION,
+} from './constants.ts'
 import HomeFallback from './HomeFallback.tsx'
+import { backdropStyle, homeTitleStyle } from './homeStyles.ts'
 
 // 홈 씬 호스트 (B4 분기의 단일 지점).
 // - 마운트 전 isWebGLAvailable()로 WebGL을 프로브한다. 불가 →
@@ -29,13 +33,8 @@ import HomeFallback from './HomeFallback.tsx'
 import { isWebGLAvailable } from './webgl.ts'
 
 const rootStyle: CSSProperties = {
+  ...backdropStyle,
   position: 'relative',
-  minHeight: '100dvh',
-  backgroundColor: COLOR_SPACE_BG,
-  backgroundImage: `url(${BACKDROP_SRC})`,
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  color: COLOR_TEXT,
   overflow: 'hidden',
 }
 
@@ -45,16 +44,12 @@ const canvasLayerStyle: CSSProperties = {
 }
 
 const titleStyle: CSSProperties = {
+  ...homeTitleStyle,
   position: 'absolute',
   top: '2.5rem',
   left: 0,
   right: 0,
-  margin: 0,
   textAlign: 'center',
-  fontSize: 'clamp(2rem, 6vw, 3.25rem)',
-  fontWeight: 300,
-  letterSpacing: '0.35em',
-  textShadow: `0 0 28px ${COLOR_NEBULA_PURPLE}`,
   pointerEvents: 'none',
 }
 
@@ -92,16 +87,16 @@ export default function Home() {
           camera={{ position: [0, 0, CAMERA_Z], fov: CAMERA_FOV }}
           onCreated={handleCreated}
         >
-          <ambientLight intensity={0.4} />
+          <ambientLight intensity={AMBIENT_LIGHT_INTENSITY} />
           <pointLight
-            position={[-4, 3, 4]}
+            position={POINT_LIGHT_PINK_POSITION}
             color={COLOR_ACCENT_PINK}
-            intensity={40}
+            intensity={POINT_LIGHT_INTENSITY}
           />
           <pointLight
-            position={[4, -2, 3]}
+            position={POINT_LIGHT_CYAN_POSITION}
             color={COLOR_ACCENT_CYAN}
-            intensity={40}
+            intensity={POINT_LIGHT_INTENSITY}
           />
           <BubbleField onWorkOpen={handleWorkOpen} />
         </Canvas>

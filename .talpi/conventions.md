@@ -58,6 +58,12 @@
   파라미터 + key 리마운트로 화면 아래에서 리스폰 (필드 안 비고, 같은
   자리 유령 재등장 없음). 새 상수 10개는 `constants.ts` "터짐" 섹션.
   16/16 green, 빌드/5173 liveness 확인.
+- fix (verifier 지적): Home/HomeFallback이 verbatim 중복하던 배경·제목
+  스타일을 신규 `src/scene/homeStyles.ts`(`backdropStyle`,
+  `homeTitleStyle`)로 추출해 양쪽에서 spread. Home의 라이트 리그 수치
+  (앰비언트 0.4, 포인트 위치/강도)와 BubbleField의 시드 스트라이드 소수
+  (7919/104729/15485863)를 `constants.ts` 명명 상수로 이동. 값/행동 변화
+  없음. 16/16 green.
 
 ## Baseline (applies unless overridden)
 
@@ -114,10 +120,18 @@
   webgl2 → webgl 순서 시도, null/예외 → false. R3F Canvas 마운트 *전*
   게이트로 사용 — jsdom(WebGL 없음)에서 three.js가 컨텍스트를 잡으려다
   죽는 일을 막는다. WebGL 필요 컴포넌트는 이 프로브를 재사용할 것.
-- `src/scene/constants.ts` — 방울 씬 상수 모듈 (카메라 z/fov, 방울 개수/
-  크기/배치/모션 파라미터, 림 셰이더 강도, 레이아웃 시드). 씬 매직 넘버는
-  전부 여기 — 씬 코드 인라인 금지. 색상은 여기 두지 않는다 (`src/theme.ts`
-  몫).
+- `src/scene/constants.ts` — 방울 씬 상수 모듈 (카메라 z/fov, 라이트 리그
+  `AMBIENT_LIGHT_INTENSITY`/`POINT_LIGHT_INTENSITY`/
+  `POINT_LIGHT_PINK_POSITION`/`POINT_LIGHT_CYAN_POSITION`, 방울 개수/
+  크기/배치/모션 파라미터, 림 셰이더 강도, 레이아웃 시드 + 시드 스트라이드
+  소수 `SEED_STRIDE_INDEX`/`SEED_OFFSET_DECORATIVE`/
+  `SEED_STRIDE_RESPAWN_GEN`). 씬 매직 넘버는 전부 여기 — 씬 코드 인라인
+  금지. 색상은 여기 두지 않는다 (`src/theme.ts` 몫).
+- `src/scene/homeStyles.ts` — Home/HomeFallback 공유 스타일 조각.
+  `backdropStyle`(풀뷰포트 우주 배경: 100dvh + BACKDROP_SRC cover/center
+  + COLOR_SPACE_BG/COLOR_TEXT), `homeTitleStyle`(제목 h1 타이포 + 성운
+  글로우). 두 컴포넌트는 spread 후 레이아웃 차이만 덧붙인다 — 이 스타일을
+  다시 인라인 복제하지 말 것.
 - `src/scene/BubbleField.tsx` — 방울 필드 (default export, Canvas 자식
   전용 — DOM 아님). 작품 방울(`WorkBubbleView`, entry 보유) + 장식 방울
   (`DecorativeBubble`) + 공용 `Bubble`(모션 useFrame + 프레넬 림

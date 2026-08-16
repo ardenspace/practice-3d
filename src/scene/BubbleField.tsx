@@ -60,6 +60,9 @@ import {
   POP_PARTICLE_SPEED_MIN,
   POP_RESPAWN_DELAY_MS,
   RESPAWN_MARGIN,
+  SEED_OFFSET_DECORATIVE,
+  SEED_STRIDE_INDEX,
+  SEED_STRIDE_RESPAWN_GEN,
   SPIN_SPEED_MAX,
   SPIN_SPEED_MIN,
   WOBBLE_AMP_MAX,
@@ -651,7 +654,7 @@ function WorkBubbleView({ bubble, index, total, onWorkOpen }: WorkBubbleViewProp
   useEffect(() => () => window.clearTimeout(navigateTimerRef.current), [])
 
   const motion = useMemo(() => {
-    const rand = mulberry32(BUBBLE_LAYOUT_SEED + index * 7919)
+    const rand = mulberry32(BUBBLE_LAYOUT_SEED + index * SEED_STRIDE_INDEX)
     // 작품 방울은 x 슬롯에 고르게 분배 (작품 1개면 중앙).
     const slotFrac = ((index + 0.5) / total) * 2 - 1
     return makeMotion(rand, {
@@ -701,7 +704,10 @@ function DecorativeBubble({ index }: { index: number }) {
 
   const { motion, radius } = useMemo(() => {
     const rand = mulberry32(
-      BUBBLE_LAYOUT_SEED + 104729 + index * 7919 + gen * 15485863,
+      BUBBLE_LAYOUT_SEED +
+        SEED_OFFSET_DECORATIVE +
+        index * SEED_STRIDE_INDEX +
+        gen * SEED_STRIDE_RESPAWN_GEN,
     )
     const radius = lerp(DECORATIVE_RADIUS_MIN, DECORATIVE_RADIUS_MAX, rand())
     const motion = makeMotion(rand, {

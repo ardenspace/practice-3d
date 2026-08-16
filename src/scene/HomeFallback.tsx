@@ -1,15 +1,13 @@
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router'
 import {
-  BACKDROP_SRC,
   COLOR_ACCENT_CYAN,
   COLOR_NEBULA_PURPLE,
-  COLOR_SPACE_BG,
-  COLOR_TEXT,
   HOME_TESTID,
   SITE_TITLE,
 } from '../theme.ts'
 import { workPath, works } from '../works/registry.ts'
+import { backdropStyle, homeTitleStyle } from './homeStyles.ts'
 
 // 홈 화면 — Phase 1의 임시 홈이자 B4 씬 폴백 화면.
 // Phase 2에서 홈 중앙은 WebGL 방울 씬이 차지하고, WebGL 컨텍스트 생성
@@ -18,27 +16,14 @@ import { workPath, works } from '../works/registry.ts'
 // 루트 요소의 data-testid={HOME_TESTID}는 B3 라우팅 테스트의 심이다.
 
 const rootStyle: CSSProperties = {
-  minHeight: '100dvh',
+  ...backdropStyle,
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
   gap: '3rem',
   padding: '2rem 1.5rem',
-  backgroundColor: COLOR_SPACE_BG,
-  backgroundImage: `url(${BACKDROP_SRC})`,
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  color: COLOR_TEXT,
   textAlign: 'center',
-}
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  fontSize: 'clamp(2rem, 6vw, 3.25rem)',
-  fontWeight: 300,
-  letterSpacing: '0.35em',
-  textShadow: `0 0 28px ${COLOR_NEBULA_PURPLE}`,
 }
 
 const listStyle: CSSProperties = {
@@ -62,7 +47,7 @@ const linkStyle: CSSProperties = {
 export default function HomeFallback() {
   return (
     <main data-testid={HOME_TESTID} style={rootStyle}>
-      <h1 style={titleStyle}>{SITE_TITLE}</h1>
+      <h1 style={homeTitleStyle}>{SITE_TITLE}</h1>
       <nav aria-label="works">
         <ul style={listStyle}>
           {works.map((w) => (

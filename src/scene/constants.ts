@@ -6,6 +6,12 @@
 export const CAMERA_Z = 6
 export const CAMERA_FOV = 60 // deg
 
+// ── 조명 (Home Canvas의 라이트 리그 — 앰비언트 + 핑크/시안 포인트) ──
+export const AMBIENT_LIGHT_INTENSITY = 0.4
+export const POINT_LIGHT_INTENSITY = 40 // 두 포인트 라이트 공통
+export const POINT_LIGHT_PINK_POSITION: [number, number, number] = [-4, 3, 4]
+export const POINT_LIGHT_CYAN_POSITION: [number, number, number] = [4, -2, 3]
+
 // ── 개수 ──
 export const DECORATIVE_BUBBLE_COUNT = 12
 
@@ -82,3 +88,8 @@ export const BUBBLE_SHIMMER_SPEED = 0.5 // 무지갯빛 색 흐름 속도
 
 // ── 시드 (레이아웃 결정론 — 새로고침마다 같은 배치) ──
 export const BUBBLE_LAYOUT_SEED = 0x5eed
+// 방울별/세대별 시드 분리용 큰 소수 스트라이드 — 인접 시드의 스트림 상관을
+// 피하려고 서로 다른 소수를 곱해 섞는다.
+export const SEED_STRIDE_INDEX = 7919 // 방울 인덱스 간격 (작품/장식 공용)
+export const SEED_OFFSET_DECORATIVE = 104729 // 장식 방울 시드 공간을 작품과 분리
+export const SEED_STRIDE_RESPAWN_GEN = 15485863 // 리스폰 세대(gen) 간격
