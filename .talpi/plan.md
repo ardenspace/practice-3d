@@ -44,4 +44,4 @@ Contracts:
 - [x] `@react-three/drei` 의존성 제거 (미사용 확인 후 package.json에서 삭제).
 - [x] `public/bubbles.glb`의 방울 지오메트리를 씬 방울에 사용 — 재질은 기존 프레넬 셰이더 유지(transmission 금지 사유 유지), 비주얼 확인 필수.
 - [x] `prefers-reduced-motion` 확장: 방울 드리프트 정지/감속 + 터짐 파티클 생략 등 씬 모션에도 적용.
-- [ ] `index.html` `<title>` ↔ `SITE_TITLE` 중복 해소 (동기화 메커니즘 또는 테스트 핀).
+- [x] `index.html` `<title>` ↔ `SITE_TITLE` 중복 해소 (동기화 메커니즘 또는 테스트 핀).

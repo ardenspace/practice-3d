@@ -41,6 +41,18 @@
   없음/throw/초기값/라이브 양방향/구형 addListener/jsdom 싱글턴).
   34/34 green, 빌드 + 4173 일반 스모크 + reduce 에뮬레이션 검증(2초 프레임
   diff 0.20% vs 일반 1.47% — 정지 확인, 호버+클릭 내비 정상, 콘솔 에러 0).
+- step (SITE_TITLE 드리프트 제거): index.html `<title>`의 'practice-3d'
+  리터럴이 theme.ts `SITE_TITLE`과 중복(baseline 규칙 1 위반, 조용한
+  드리프트 경로). index.html은 `<title>%SITE_TITLE%</title>` 자리표시자로
+  바꾸고, vite.config.ts의 인라인 플러그인 `site-title`
+  (`transformIndexHtml`)이 `./src/theme`의 SITE_TITLE로 dev/build 양쪽
+  치환 — 사이트 이름 변경 = theme.ts 상수 한 곳 수정. tsconfig.node.json
+  include에 `src/theme.ts` 추가(안 하면 `tsc -b`가 TS6307로 실패 —
+  프로젝트 경계). 가드 테스트 신규 `src/siteTitle.test.ts`: index.html의
+  유일한 `<title>`이 자리표시자임을 핀 (리터럴로 되돌리면 시끄럽게 실패;
+  jsdom에선 import.meta.url이 http 스킴이라 cwd 기준으로 읽음).
+  35/35 green, 빌드(dist/index.html 제목 치환 확인) + 5173 dev 스모크
+  (curl 제목 확인 후 종료) 통과.
 
 ## (지난 phase 기록 — Phase 3)
 
