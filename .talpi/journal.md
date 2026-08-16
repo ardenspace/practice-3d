@@ -2,3 +2,7 @@
 - [2026-08-16] plan approved, 3 phases
 - [2026-08-16] phase 1 started (base: 8dcc2f9)
 - [2026-08-16] phase 1 contracts pinned
+- [2026-08-16] phase 1 verified
+- [2026-08-16] phase 1 reported
+- [2026-08-16] phase 2 started (base: 0e2e61f)
+- [2026-08-16] phase 2 contracts pinned

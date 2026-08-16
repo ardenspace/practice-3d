@@ -1,39 +1,17 @@
 # Conventions
 
-## Prior work this phase (Phase 1)
+## Prior work this phase (Phase 2)
 
-- step 1: 프로젝트 스캐폴드 — Vite 7 + React 19 + TS strict + Vitest(jsdom,
-  `src/**/*.test.{ts,tsx}`) + react-router 7(`react-router` 패키지) + R3F.
-  `src/theme.ts`(SITE_TITLE), `src/App.tsx`, scripts: dev/build/preview/test.
-- step 2: B1–B3 계약 테스트 핀 — `src/works/registry.test.tsx`(B1),
-  `src/works/assets.test.ts`(B2, node env fs 검사),
-  `src/routes.test.tsx`(B3), `src/scene/bubbles.test.ts`(파생 보장).
-  스텁: `src/works/registry.ts`(스키마 타입 + 빈 `works`),
-  `src/scene/bubbles.ts`(`deriveWorkBubbles` — 빈 배열 반환),
-  `src/routes.tsx`(`routes: RouteObject[]` — catch-all null).
-  이 12개 테스트는 구현 전까지 assertion에서 실패하는 것이 정상.
-  구현 스텝은 스텁을 채워서(재생성 금지) 테스트를 green으로 만든다.
-  devDependency 추가: `@types/node` (B2 node 환경 테스트용).
-- step 3: 에셋 — `public/backdrop.webp`(37KB, 1920x1080),
-  `public/works/vending-machine/object.webp`(42KB, 1024x1024, 알파 투명).
-  등록부 항목의 `object.src`는 `/works/vending-machine/object.webp`.
-  Blender 렌더 주의: vending-machine.blend 카메라에 Track-To 제약
-  (BubbleTarget 타깃) 있음 — 재렌더 시 제약 제거 후 카메라 조작.
-  .blend 파일은 읽기 전용 취급 (저장 금지).
-- step 4: 등록부·파생 구현 — `src/works/registry.ts`(자판기 항목),
-  `src/works/vending-machine/VendingMachinePage.tsx`(v1 페이지 셸 +
-  메타 상수), `src/scene/bubbles.ts` 구현 완료. B1·B2 green,
-  B3 5개만 red (routes 스텁 유지).
-- step 5: 라우팅 + 임시 홈 — `src/routes.tsx` 구현(등록부에서 라우트
-  파생, catch-all은 `<Navigate to="/" replace>`), `src/App.tsx`가
-  `createBrowserRouter(routes)`로 라우터 구성. 홈/폴백 화면은
-  `src/scene/HomeFallback.tsx` (Phase 2가 B4 폴백으로 재사용 —
-  배경 + 제목 h1 + 전 작품 링크, 루트에 `data-testid={HOME_TESTID}`).
-  씬 색상 토큰을 `src/theme.ts`에 추가. 테스트 인프라:
-  `src/test-setup.ts`(vitest setupFiles) — jsdom AbortSignal과 Node
-  undici Request의 렐름 불일치 보정 (없으면 react-router 내비게이션이
-  jsdom에서 죽는다). `src/vite-env.d.ts`(vite/client 타입, CSS 임포트).
-  14개 테스트 전부 green, `bun run build` 통과.
+<!-- phase 시작 시 리셋. Phase 1 산출물은 Shared Utilities 참조:
+     registry, deriveWorkBubbles, routes, HomeFallback, theme 토큰,
+     test-setup. 에셋 렌더 주의사항은 git log의 phase 1 step 3 참조. -->
+
+- step 1 (B4 핀): `src/scene/Home.test.tsx` — WebGL 명시 차단 환경에서
+  홈 라우트가 폴백(배경 + 제목 + 등록부 전 작품 링크, 항목당 정확히 1개)
+  을 렌더해야 한다는 계약. 의도적 red. `/`의 element를 새 씬 호스트 stub
+  `src/scene/Home.tsx`로 교체 — stub은 B3(HOME_TESTID)와 스캐폴드 테스트
+  (SITE_TITLE h1)만 만족하고 B4 의무는 미이행. 다음 스텝이 Home에
+  WebGL 감지 + 씬/HomeFallback 분기를 구현하면 green이 된다.
 
 ## Baseline (applies unless overridden)
 
@@ -80,6 +58,10 @@
   `createMemoryRouter`를 만든다. 라우트는 등록부(`works`)에서 파생 —
   등록부 항목 추가만으로 라우트가 늘어난다 (B1). 알 수 없는 경로는
   catch-all `<Navigate to="/" replace>`.
+- `src/scene/Home.tsx` — 홈 씬 호스트 (default export). `/` 라우트의
+  element. WebGL 씬 vs HomeFallback 폴백(B4)을 결정하는 자리 — 현재는
+  stub(HOME_TESTID 루트 + SITE_TITLE h1만). WebGL 감지/분기는 다음
+  스텝에서 구현. 홈 루트 testid 의무(B3)는 이 컴포넌트가 진다.
 - `src/scene/HomeFallback.tsx` — 홈/폴백 화면 컴포넌트 (default export).
   배경 이미지 + `SITE_TITLE` h1 + 등록부 전 작품 텍스트 링크, 루트에
   `data-testid={HOME_TESTID}`. Phase 1에서는 `/`의 홈 화면이며, Phase 2
