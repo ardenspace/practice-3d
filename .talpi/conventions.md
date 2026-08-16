@@ -20,6 +20,17 @@
   필드는 다음 스텝) + 제목 h1 오버레이. Canvas onCreated에서
   `webglcontextlost` 리스너 등록 → 상태 전환으로 폴백 렌더 (수동 검수
   범위). 16/16 green.
+- step 3 (방울 필드): `src/scene/BubbleField.tsx` — Canvas 자식으로 방울
+  필드. 작품 방울은 `deriveWorkBubbles(works)`에서만 파생 (씬은 등록부
+  직접 소비 금지, B1 conformance) — `WorkBubbleView`가 entry를 들고 있어
+  다음 스텝(호버/클릭)이 slug/title/object.src를 쓴다. 장식 방울 12개.
+  재질은 transmission 없는 커스텀 프레넬 림 ShaderMaterial (alpha 캔버스
+  + CSS backdrop 조합에서 transmission이 검게 뜨는 문제 회피;
+  `public/bubbles.glb` 미사용, 파일 유지). 모션: 위 드리프트 + sin 좌우
+  흔들림 + z 스웨이 + 느린 자전, 깊이별 가시 경계 밖에서 y 랩(리스폰).
+  x/y 배치는 뷰포트 비율 기반이라 리사이즈/모바일 대응. 매직 넘버는 전부
+  `src/scene/constants.ts`. Home Canvas에 카메라 상수(CAMERA_Z/FOV) 명시.
+  상호작용은 다음 스텝 몫 — 지금은 떠다니기만. 16/16 green.
 
 ## Baseline (applies unless overridden)
 
@@ -76,6 +87,17 @@
   webgl2 → webgl 순서 시도, null/예외 → false. R3F Canvas 마운트 *전*
   게이트로 사용 — jsdom(WebGL 없음)에서 three.js가 컨텍스트를 잡으려다
   죽는 일을 막는다. WebGL 필요 컴포넌트는 이 프로브를 재사용할 것.
+- `src/scene/constants.ts` — 방울 씬 상수 모듈 (카메라 z/fov, 방울 개수/
+  크기/배치/모션 파라미터, 림 셰이더 강도, 레이아웃 시드). 씬 매직 넘버는
+  전부 여기 — 씬 코드 인라인 금지. 색상은 여기 두지 않는다 (`src/theme.ts`
+  몫).
+- `src/scene/BubbleField.tsx` — 방울 필드 (default export, Canvas 자식
+  전용 — DOM 아님). 작품 방울(`WorkBubbleView`, entry 보유) + 장식 방울
+  (`DecorativeBubble`) + 공용 `Bubble`(모션 useFrame + 프레넬 림
+  ShaderMaterial + group/mesh 분리 — 자전은 mesh만, group은 훗날 오브제
+  자식용으로 무회전). 방울별 모션 파라미터는 mulberry32 시드 랜덤으로
+  마운트 시 1회 생성. 호버/클릭 스텝은 이 파일의 `WorkBubbleView`/`Bubble`
+  에 상태를 얹는다.
 - `src/scene/HomeFallback.tsx` — 홈/폴백 화면 컴포넌트 (default export).
   배경 이미지 + `SITE_TITLE` h1 + 등록부 전 작품 텍스트 링크, 루트에
   `data-testid={HOME_TESTID}`. Phase 1에서는 `/`의 홈 화면이며, Phase 2
