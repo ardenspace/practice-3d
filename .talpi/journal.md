@@ -1,1 +1,3 @@
 - [2026-08-16] spec approved (panel: 2 rounds of re-run, 2 surviving BLOCKING fixed by human decision; NOTEs recorded in spec/plan backlog)
+- [2026-08-16] plan approved, 3 phases
+- [2026-08-16] phase 1 started (base: 8dcc2f9)
