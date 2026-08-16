@@ -1,0 +1,1 @@
+- [2026-08-16] spec approved (panel: 2 rounds of re-run, 2 surviving BLOCKING fixed by human decision; NOTEs recorded in spec/plan backlog)
