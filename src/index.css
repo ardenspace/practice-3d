@@ -1,0 +1,16 @@
+/* 구조 리셋만 — 색상·간격 토큰은 src/theme.ts 한 곳에 둔다. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Apple SD Gothic Neo',
+    'Noto Sans KR',
+    sans-serif;
+}

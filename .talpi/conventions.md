@@ -24,6 +24,16 @@
   `src/works/vending-machine/VendingMachinePage.tsx`(v1 페이지 셸 +
   메타 상수), `src/scene/bubbles.ts` 구현 완료. B1·B2 green,
   B3 5개만 red (routes 스텁 유지).
+- step 5: 라우팅 + 임시 홈 — `src/routes.tsx` 구현(등록부에서 라우트
+  파생, catch-all은 `<Navigate to="/" replace>`), `src/App.tsx`가
+  `createBrowserRouter(routes)`로 라우터 구성. 홈/폴백 화면은
+  `src/scene/HomeFallback.tsx` (Phase 2가 B4 폴백으로 재사용 —
+  배경 + 제목 h1 + 전 작품 링크, 루트에 `data-testid={HOME_TESTID}`).
+  씬 색상 토큰을 `src/theme.ts`에 추가. 테스트 인프라:
+  `src/test-setup.ts`(vitest setupFiles) — jsdom AbortSignal과 Node
+  undici Request의 렐름 불일치 보정 (없으면 react-router 내비게이션이
+  jsdom에서 죽는다). `src/vite-env.d.ts`(vite/client 타입, CSS 임포트).
+  14개 테스트 전부 green, `bun run build` 통과.
 
 ## Baseline (applies unless overridden)
 
@@ -49,8 +59,10 @@
 
 <!-- 빌드 중 implementer가 새 유틸을 만들면 여기 등록한다. -->
 
-- `src/theme.ts` — 토큰/상수 모듈. 현재 `SITE_TITLE`, `HOME_TESTID`.
-  씬 색상과 `LONG_PRESS_MS`도 여기에 추가한다.
+- `src/theme.ts` — 토큰/상수 모듈. 현재 `SITE_TITLE`, `HOME_TESTID`,
+  `BACKDROP_SRC`, 우주 무드 색상(`COLOR_SPACE_BG` 어두운 배경,
+  `COLOR_NEBULA_PURPLE`, `COLOR_ACCENT_PINK`, `COLOR_ACCENT_CYAN`,
+  `COLOR_TEXT`). `LONG_PRESS_MS`는 이후 스텝에서 추가한다.
 - `HOME_TESTID` (`src/theme.ts`) — 테스트 심(B3): 홈 화면 루트 요소는
   `data-testid={HOME_TESTID}`를 가져야 한다. 라우팅 테스트가 "홈 렌더/
   홈으로 리다이렉트"를 이 아이디로 판별한다.
@@ -64,7 +76,18 @@
   `deriveWorkBubbles(entries): WorkBubble[]` (`WorkBubble = { entry }`,
   등록부 순서 유지, 항목당 정확히 1개). 씬은 이 목록만 소비한다.
 - `src/routes.tsx` — 라우팅 표면의 단일 진실 `routes: RouteObject[]`.
-  App/main은 이 배열로 라우터를 만든다. 현재 catch-all null 스텁.
+  App은 이 배열로 `createBrowserRouter`를 만들고, 테스트는 같은 배열로
+  `createMemoryRouter`를 만든다. 라우트는 등록부(`works`)에서 파생 —
+  등록부 항목 추가만으로 라우트가 늘어난다 (B1). 알 수 없는 경로는
+  catch-all `<Navigate to="/" replace>`.
+- `src/scene/HomeFallback.tsx` — 홈/폴백 화면 컴포넌트 (default export).
+  배경 이미지 + `SITE_TITLE` h1 + 등록부 전 작품 텍스트 링크, 루트에
+  `data-testid={HOME_TESTID}`. Phase 1에서는 `/`의 홈 화면이며, Phase 2
+  는 홈 중앙을 WebGL 씬으로 교체하고 이 컴포넌트를 B4 폴백으로 재사용.
+- `src/test-setup.ts` — vitest setupFiles (앱 코드 아님). jsdom의
+  AbortController/AbortSignal을 Node 네이티브로 교체 — react-router 7
+  데이터 라우터의 내비게이션(`new Request(url, { signal })`)이 jsdom
+  렐름 시그널을 거부하는 문제 보정. 지우면 리다이렉트 테스트가 깨진다.
 
 ## Layout & Naming
 

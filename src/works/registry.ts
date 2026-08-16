@@ -32,6 +32,11 @@ export interface WorkEntry {
   Page: ComponentType
 }
 
+/** 등록 항목의 라우트 경로 (`/works/<slug>`) — 라우팅 표면과 링크가 함께 쓴다. */
+export function workPath(slug: string): string {
+  return `/works/${slug}`
+}
+
 export const works: readonly WorkEntry[] = [
   {
     slug: 'vending-machine',
