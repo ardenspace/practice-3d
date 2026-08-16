@@ -39,6 +39,12 @@
   ('← 방울들에게로', 자판기 페이지와 공유)은 theme.ts 단일 소스.
   테스트 2개 추가(픽스처 라우트 크래시 → 문구+홈 링크, 정상 경로 투명).
   27/27 green, 빌드/5173 liveness 확인.
+- smoke fix (favicon 404): `public/favicon.svg` 신규 — 손으로 쓴 작은
+  SVG(핑크→시안 그라디언트 림의 비눗방울 원 + 흰 하이라이트 호, 보라빛
+  반투명 채움, 투명 배경 — 우주 무드 셀프호스트). index.html `<head>`에
+  `<link rel="icon" type="image/svg+xml" href="/favicon.svg">` 추가로
+  `/favicon.ico` 404 콘솔 에러 제거. 27/27 green, 빌드/4173에서
+  favicon.svg 200 확인.
 
 ## (지난 phase 기록 — Phase 2)
 
