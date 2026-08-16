@@ -1,6 +1,12 @@
 # Conventions
 
-## Prior work this phase (Phase 3)
+## Prior work this phase (Phase 4: Acceptance fixes)
+
+<!-- phase 시작 시 리셋. -->
+
+- step: 미사용 `@react-three/drei` 의존성 제거 (`bun remove`, src/ 임포트 0건 — 주석 언급 2건뿐) — build/test(27/27) 그린.
+
+## (지난 phase 기록 — Phase 3)
 
 <!-- phase 시작 시 리셋. Phase 1–2 산출물은 Shared Utilities 참조. -->
 

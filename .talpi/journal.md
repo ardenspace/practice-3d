@@ -15,3 +15,6 @@
 - [2026-08-16] smoke run passed (real browser walk: home→hover→objet→pop→navigate→deeplink; favicon 404 found+fixed)
 - [2026-08-16] run review (through 413af6d): 6 findings (0 fixed, 6 noted)
 - [2026-08-16] final report sent, awaiting acceptance
+- [2026-08-16] acceptance declined: drei 제거, bubbles.glb 씬 통합, reduced-motion 확장, title 중복 해소 (NOTE 4·5는 수용/다음 라운드, 이름 유지)
+- [2026-08-16] phase 4 started (base: 3e951b8)
+- [2026-08-16] phase 4 contracts: none
