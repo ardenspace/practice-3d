@@ -5,6 +5,24 @@
 <!-- phase 시작 시 리셋. -->
 
 - step: 미사용 `@react-three/drei` 의존성 제거 (`bun remove`, src/ 임포트 0건 — 주석 언급 2건뿐) — build/test(27/27) 그린.
+- step (glb 방울 지오메트리): 사람이 Blender에서 모델링한
+  `public/bubbles.glb`의 방울 mesh를 씬 방울(작품+장식)의 지오메트리로
+  사용. 검사 결과 glb의 Bubble00–11은 전부 동일 토폴로지(1223 verts/
+  2208 tris)의 완전한 구로 반지름만 달라, 첫 mesh 하나를 추출해
+  `center()` + 단위 반지름 정규화(boundingSphere) 후 전 방울이 공유
+  (기존 반지름 상수 의미 유지). 로드는 `BubbleField.tsx`의
+  `useBubbleGeometry` 훅 — 모듈 promise 캐시로 요청 1회, fetch 시작은
+  첫 훅 마운트(Canvas 안)에서만 (jsdom 임포트 시 네트워크 요청 없음,
+  오브제 텍스처와 같은 규율). 준비 전/실패 시 폴백 절차적 구
+  (SphereGeometry 48×32, `fallbackBubbleGeometry`) — 백지 금지. 재질은
+  기존 프레넬 림 ShaderMaterial 그대로 (transmission/박막은 이 alpha
+  캔버스 셋업에서 검게 뜨는 기지 제약 — glb에서 지오메트리만 가져온다).
+  경로 상수 `BUBBLE_MODEL_SRC`('/bubbles.glb')는 constants.ts.
+  부수 수정: GLTFLoader 임포트가 three의 `getContext('webgpu')` 타입
+  오버로드를 끌어와 Home.test.tsx의 `Parameters<getContext>` 내로잉이
+  깨져 — contextId를 string으로 넓혀 비교 (타입만, 런타임 불변).
+  27/27 green, 빌드 + 4173 스모크(glb 200 fetch 1회, 콘솔 에러 0,
+  스크린샷 검수) 확인.
 
 ## (지난 phase 기록 — Phase 3)
 
@@ -215,7 +233,9 @@
   `children?: (hovered: boolean) => ReactNode` 함수로 받아 오브제
   (`BubbleObjet`)가 호버를 구동받는다. 파일 내 공용: `dampTo`(지수 감쇠
   스무딩), `useHoverCursor`(카운터 기반 pointer 커서), `useObjetTexture`
-  (비동기 텍스처, 실패 조용), `PopBurst`(일회성 파티클 버스트 — 원점
+  (비동기 텍스처, 실패 조용), `useBubbleGeometry`(bubbles.glb 방울
+  지오메트리 — 단위 반지름 정규화, 공유 promise 캐시, 준비 전엔 폴백
+  절차적 구), `PopBurst`(일회성 파티클 버스트 — 원점
   기준 구면 버스트, center/radius/onDone만 받아 재사용 가능). 클릭 터짐은
   구현 완료: Bubble이 idle→burst→gone 단계 + `onPop`/`onPopFinished`
   콜백, 루트 `BubbleField`는 `onWorkOpen?: (slug) => void` prop (Home이

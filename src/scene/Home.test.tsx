@@ -19,7 +19,10 @@ const blockedGetContext = function (
   this: HTMLCanvasElement,
   ...args: Parameters<HTMLCanvasElement['getContext']>
 ) {
-  const [contextId] = args
+  // Parameters<>는 오버로드 중 마지막 시그니처만 뽑는다 — three의 타입이
+  // getContext('webgpu') 오버로드를 추가해도 이 판정은 문자열 비교라
+  // string으로 넓혀 비교한다 (런타임 동작 불변).
+  const [contextId] = args as [string, ...unknown[]]
   if (
     contextId === 'webgl' ||
     contextId === 'webgl2' ||

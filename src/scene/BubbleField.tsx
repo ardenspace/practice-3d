@@ -15,6 +15,7 @@ import {
   TextureLoader,
   type Texture,
 } from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import {
   COLOR_ACCENT_CYAN,
   COLOR_ACCENT_PINK,
@@ -28,6 +29,7 @@ import {
   BUBBLE_BASE_ALPHA,
   BUBBLE_FRESNEL_POWER,
   BUBBLE_HEIGHT_SEGMENTS,
+  BUBBLE_MODEL_SRC,
   BUBBLE_HOVER_SCALE,
   BUBBLE_LAYOUT_SEED,
   BUBBLE_SHIMMER_SPEED,
@@ -82,11 +84,16 @@ import {
 // 파생한다 (B1: 등록 항목 N개 = 작품 방울 정확히 N개, 씬은 등록부를 직접
 // 소비하지 않는다). 장식 방울은 상수 개수만큼.
 //
+// 지오메트리: 사람이 Blender에서 모델링한 public/bubbles.glb의 방울 mesh를
+// 추출해 단위 반지름으로 정규화, 전 방울이 공유한다 (아래 useBubbleGeometry).
+// 로드 완료 전/실패 시엔 폴백 절차적 구 — 백지·레이아웃 점프 없음.
+//
 // 재질: three 표준 재질 대신 가벼운 프레넬 림 셰이더 (ShaderMaterial).
 // - 정면은 거의 투명, 가장자리(림)로 갈수록 핑크/시안/보라 무지갯빛이
 //   차오르는 비눗방울 룩. transmission을 안 쓰는 이유: 배경이 캔버스 밖
 //   CSS 이미지(alpha 캔버스)라 transmission 패스가 샘플할 씬 배경이 없어
-//   방울이 어둡게 뜬다. public/bubbles.glb는 사용하지 않음 (파일 유지).
+//   방울이 어둡게 뜬다. glb의 Blender 박막(thin film) 재질도 같은 이유로
+//   이식하지 않는다 — glb에서 가져오는 건 지오메트리뿐.
 //
 // 모션: 위로 드리프트 + sin 좌우 흔들림 + 얕은 z 스웨이 + 느린 자전.
 // y는 방울의 깊이별 가시 경계 + RESPAWN_MARGIN에서 랩 — 위로 나가면
@@ -165,13 +172,78 @@ function markTouchEnd(): void {
   lastTouchEndAt = performance.now()
 }
 
-// 전 방울이 공유하는 단위 구 (반지름은 mesh scale). 지오메트리는 순수
-// 계산이라 import 시점 생성이 jsdom에서도 안전하다.
-const bubbleGeometry = new SphereGeometry(
+// ── 방울 지오메트리 (BUBBLE_MODEL_SRC glb → 폴백 절차적 구) ──
+// 폴백: glb 로드 완료 전(첫 프레임들)과 로드 실패 시 쓰는 단위 구
+// (반지름은 mesh scale). 지오메트리는 순수 계산이라 import 시점 생성이
+// jsdom에서도 안전하다.
+const fallbackBubbleGeometry = new SphereGeometry(
   1,
   BUBBLE_WIDTH_SEGMENTS,
   BUBBLE_HEIGHT_SEGMENTS,
 )
+
+// glb의 방울 mesh 지오메트리 — 모듈에서 1회 로드해 전 방울이 공유한다.
+// (glb의 12개 Bubble.* mesh는 전부 동일 토폴로지의 구이고 반지름만 달라
+// 정규화 후엔 하나면 충분하다.) fetch는 반드시 첫 훅 마운트(=Canvas 안)
+// 에서 시작한다 — jsdom 테스트가 이 모듈을 import해도 네트워크 요청이
+// 없도록 (오브제 텍스처와 같은 규율).
+let bubbleGeometryPromise: Promise<BufferGeometry | null> | null = null
+
+function loadGlbBubbleGeometry(): Promise<BufferGeometry | null> {
+  bubbleGeometryPromise ??= new Promise((resolve) => {
+    new GLTFLoader().load(
+      BUBBLE_MODEL_SRC,
+      (gltf) => {
+        let found: Mesh | null = null
+        gltf.scene.traverse((obj) => {
+          if (!found && (obj as Mesh).isMesh) found = obj as Mesh
+        })
+        if (!found) {
+          resolve(null)
+          return
+        }
+        // 단위 반지름 정규화 — 기존 반지름 상수(WORK_BUBBLE_RADIUS 등)가
+        // mesh scale로 그대로 의미를 가진다.
+        const geometry = (found as Mesh).geometry
+        geometry.center()
+        geometry.computeBoundingSphere()
+        const radius = geometry.boundingSphere?.radius ?? 0
+        if (radius > 0) {
+          const s = 1 / radius
+          geometry.scale(s, s, s)
+          geometry.computeBoundingSphere()
+        }
+        resolve(geometry)
+      },
+      undefined,
+      () => {
+        // 실패는 조용히 — 폴백 구로 계속 (백지 금지).
+        resolve(null)
+      },
+    )
+  })
+  return bubbleGeometryPromise
+}
+
+// 방울이 쓸 지오메트리 훅 — glb가 준비되면 교체, 그 전엔 폴백 구.
+// 로드는 공유 promise라 방울 수와 무관하게 요청은 1회.
+function useBubbleGeometry(): BufferGeometry {
+  const [geometry, setGeometry] = useState<BufferGeometry>(
+    fallbackBubbleGeometry,
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    void loadGlbBubbleGeometry().then((loaded) => {
+      if (!cancelled && loaded) setGeometry(loaded)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return geometry
+}
 
 // 셰이더는 linear space에서 계산하므로 sRGB 토큰을 변환해 둔다.
 const rimPink = new Color(COLOR_ACCENT_PINK).convertSRGBToLinear()
@@ -442,6 +514,9 @@ function Bubble({
   useEffect(() => clearTouch, [])
 
   useHoverCursor(hovered)
+
+  // 사람이 모델링한 glb 방울 지오메트리 (준비 전엔 폴백 구).
+  const bubbleGeometry = useBubbleGeometry()
 
   const uniforms = useMemo(
     () => ({

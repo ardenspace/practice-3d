@@ -83,6 +83,11 @@ export const POP_RESPAWN_DELAY_MS = 2600
 export const TOUCH_CLICK_SUPPRESS_MS = 500
 
 // ── 지오메트리 ──
+// 방울 지오메트리의 소스는 사람이 Blender에서 모델링한 public/bubbles.glb
+// (blender/bubbles.blend). 첫 방울 mesh를 추출해 단위 반지름으로 정규화해
+// 전 방울이 공유한다 — 반지름 상수들(WORK_BUBBLE_RADIUS 등)의 의미 유지.
+export const BUBBLE_MODEL_SRC = '/bubbles.glb'
+// glb 로드 완료 전(및 로드 실패 시) 폴백 절차적 구의 세그먼트.
 export const BUBBLE_WIDTH_SEGMENTS = 48
 export const BUBBLE_HEIGHT_SEGMENTS = 32
 
