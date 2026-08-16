@@ -1,0 +1,15 @@
+# deps / build
+node_modules/
+dist/
+
+# heavy render outputs (originals live locally; web copies go in public/works/)
+renders/
+
+# blender backups
+*.blend1
+*.blend2
+
+# os / logs
+.DS_Store
+*.log
+.gstack/
