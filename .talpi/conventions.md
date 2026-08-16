@@ -23,6 +23,24 @@
   깨져 — contextId를 string으로 넓혀 비교 (타입만, 런타임 불변).
   27/27 green, 빌드 + 4173 스모크(glb 200 fetch 1회, 콘솔 에러 0,
   스크린샷 검수) 확인.
+- step (prefers-reduced-motion 씬 확장 — 사람 승인 "확장해볼까"): 감지는
+  신규 `src/scene/reducedMotion.ts`(아래 Shared Utilities) — matchMedia
+  'change' 리스너로 값 캐시, **라이브**(설정 변경이 다음 프레임 반영),
+  jsdom(matchMedia 없음/throw)에선 항상 false로 무해. 축소 시 행동:
+  (a) 드리프트/흔들림/자전은 로컬시간 진행에
+  `REDUCED_MOTION_TIME_SCALE`(0)을 곱해 **완전 정지 필드** — 쉬머(uTime)
+  는 실제 시간이라 색 흐름만 남아 씬이 죽지 않는다. (b) 호버 정지+확대와
+  오브제 공개는 유지(사용자 주도 기능적 피드백)하되 스무딩 λ를
+  `REDUCED_MOTION_DAMP`(30, 사실상 즉시)로. (c) 팝은 파티클 생략 — 방울
+  즉시 소멸, gone/onPopFinished는 setTimeout(POP_PARTICLE_LIFETIME)으로
+  일반 모드와 동일 타이밍(내비 딜레이/리스폰 불변). 축소 여부는 터짐
+  확정 순간 ref로 고정(연출 반쯤 섞임 방지). (d) 장식 리스폰은 정지
+  필드에서 화면 밖 스폰이 안 보이므로 시드 랜덤 위치에 불연속 등장
+  (startFrac=0 강제 생략). 상수 2개는 constants.ts "모션 축소" 섹션.
+  헬퍼 유닛 테스트 7개(`reducedMotion.test.ts`, matchMedia 페이크 —
+  없음/throw/초기값/라이브 양방향/구형 addListener/jsdom 싱글턴).
+  34/34 green, 빌드 + 4173 일반 스모크 + reduce 에뮬레이션 검증(2초 프레임
+  diff 0.20% vs 일반 1.47% — 정지 확인, 호버+클릭 내비 정상, 콘솔 에러 0).
 
 ## (지난 phase 기록 — Phase 3)
 
@@ -209,6 +227,15 @@
   `SEED_STRIDE_RESPAWN_GEN`, 터치 click 억제 시간창
   `TOUCH_CLICK_SUPPRESS_MS`). 씬 매직 넘버는 전부 여기 — 씬 코드 인라인
   금지. 색상과 LONG_PRESS_MS는 여기 두지 않는다 (`src/theme.ts` 몫).
+- `src/scene/reducedMotion.ts` — prefers-reduced-motion 감지 헬퍼.
+  `prefersReducedMotion(): boolean` — 씬 코드의 단일 진입점. matchMedia
+  'change' 리스너로 값을 캐시해 프레임마다 불러도 공짜(라이브 갱신).
+  matchMedia 없음(jsdom)/throw면 항상 false, 절대 던지지 않는다.
+  `createReducedMotionSource(host?)`는 테스트용 주입 팩토리. CSS 쪽
+  대응(index.css @media)과 별개로, JS 프레임 루프 모션은 반드시 이
+  헬퍼로 분기한다 — matchMedia를 씬 코드에서 직접 부르지 말 것.
+  축소 시의 씬 정책(정지 필드/즉시 전환/파티클 생략)은 constants.ts의
+  REDUCED_MOTION_TIME_SCALE/REDUCED_MOTION_DAMP + BubbleField 참조.
 - `src/scene/homeStyles.ts` — Home/HomeFallback 공유 스타일 조각.
   `backdropStyle`(풀뷰포트 우주 배경: 100dvh + BACKDROP_SRC cover/center
   + COLOR_SPACE_BG/COLOR_TEXT + 홈 도착 page-enter 페이드),

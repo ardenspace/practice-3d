@@ -59,6 +59,16 @@ export const OBJET_FADE_DAMP = 7 // 오브제 페이드 인/아웃 스무딩 λ
 export const OBJET_REVEAL_SCALE_FROM = 0.75 // 공개 시작 스케일 (페이드와 함께 1로)
 export const OBJET_VISIBLE_EPSILON = 0.01 // 이하 불투명도는 렌더 스킵
 
+// ── 모션 축소 (prefers-reduced-motion — WebGL 씬 대응) ──
+// CSS 전환(index.css)은 @media로 0ms 처리하고, 씬은 이 상수들로 대응한다.
+// 감지는 src/scene/reducedMotion.ts (라이브 matchMedia 리스너).
+// 드리프트/흔들림/자전의 시간 배율 — 0이면 완전 정지 필드 (쉬머 색 흐름은
+// 실제 시간이라 계속 흘러 씬은 죽지 않는다).
+export const REDUCED_MOTION_TIME_SCALE = 0
+// 축소 모드의 호버 확대/오브제 페이드 스무딩 λ — 사실상 즉시 전환
+// (사용자 주도 피드백은 유지하되 애니메이션은 최소화).
+export const REDUCED_MOTION_DAMP = 30
+
 // ── 터짐 (클릭 팝 — Requirements 5–6, 파티클/연출은 Delegated) ──
 // 파티클은 방울 표면에서 바깥으로 튀는 무지갯빛 물방울 조각 (Points 1드로).
 export const POP_PARTICLE_COUNT = 28 // 방울 하나가 터질 때 조각 수

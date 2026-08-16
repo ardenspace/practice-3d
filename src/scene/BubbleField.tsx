@@ -24,6 +24,7 @@ import {
 } from '../theme.ts'
 import { works } from '../works/registry.ts'
 import { deriveWorkBubbles, type WorkBubble } from './bubbles.ts'
+import { prefersReducedMotion } from './reducedMotion.ts'
 import { decideTouchAction, shouldSuppressClick } from './touch.ts'
 import {
   BUBBLE_BASE_ALPHA,
@@ -63,6 +64,8 @@ import {
   POP_PARTICLE_SPEED_MAX,
   POP_PARTICLE_SPEED_MIN,
   POP_RESPAWN_DELAY_MS,
+  REDUCED_MOTION_DAMP,
+  REDUCED_MOTION_TIME_SCALE,
   RESPAWN_MARGIN,
   SEED_OFFSET_DECORATIVE,
   SEED_STRIDE_INDEX,
@@ -129,6 +132,18 @@ import {
 // 종료 시각)으로 무시한다 — 이 억제가 없으면 탭이 이중 팝하거나 길게
 // 누르기 해제가 팝으로 샌다. 마우스는 pointerType 분기로 기존 호버/클릭
 // 경로 그대로다.
+//
+// 모션 축소 (prefers-reduced-motion, 감지는 reducedMotion.ts — 라이브):
+// - 드리프트/흔들림/자전의 시간 진행에 REDUCED_MOTION_TIME_SCALE(0)을
+//   곱해 필드를 정지시킨다. 쉬머(uTime)는 실제 시간이라 계속 흘러 씬이
+//   죽어 보이지 않는다 (위치 변화 없는 색 흐름만).
+// - 호버 정지+확대와 오브제 공개는 유지 (사용자 주도·짧은·기능적 피드백)
+//   하되 스무딩 λ를 REDUCED_MOTION_DAMP로 바꿔 사실상 즉시 전환.
+// - 팝: 파티클 버스트를 건너뛰고 방울이 즉시 사라진다. gone 전환과
+//   onPopFinished는 파티클 수명과 같은 시각에 일어나 내비게이션/리스폰
+//   타이밍은 일반 모드와 동일하다.
+// - 장식 방울 리스폰: 정지 필드에서는 화면 아래 경계 스폰이 영영 안
+//   보이므로, 축소 모드에서는 시드 랜덤 위치(필드 안)에 바로 나타난다.
 
 // 오브제 평면 공유 지오메트리 (단위 정사각형, 크기는 mesh scale).
 const objetGeometry = new PlaneGeometry(1, 1)
@@ -491,6 +506,9 @@ function Bubble({
   // 터진 순간의 위치/크기 — 파티클이 방울이 있던 바로 그 자리에서 터진다.
   const popCenterRef = useRef<readonly [number, number, number]>([0, 0, 0])
   const popRadiusRef = useRef(radius)
+  // 터짐 확정 순간의 모션 축소 여부 — burst 수명 내내 이 값으로 일관되게
+  // 처리한다 (터지는 도중 OS 설정이 바뀌어도 연출이 반쯤 섞이지 않게).
+  const popReducedRef = useRef(false)
   // 무텔레포트 정지의 상태: 로컬시간(위치의 유일한 시간축) + 진행 속도 +
   // 현재 스케일. 렌더가 아니라 프레임 루프가 굴리는 값이라 ref.
   const localTimeRef = useRef(0)
@@ -552,6 +570,9 @@ function Bubble({
     const mesh = meshRef.current
     if (!group || !mesh) return
 
+    // 모션 축소 (라이브 — OS 설정 변경이 다음 프레임부터 반영).
+    const reducedMotion = prefersReducedMotion()
+
     // 호버 → 속도가 0으로 감쇠(감속 정지), 해제 → 1로 복귀(재가속).
     // 위치는 로컬시간의 함수이므로 멈춘 자리에서 그대로 이어진다.
     speedRef.current = dampTo(
@@ -560,7 +581,10 @@ function Bubble({
       HOVER_PAUSE_DAMP,
       delta,
     )
-    localTimeRef.current += delta * speedRef.current
+    // 축소 모드: 시간 진행 자체를 배율(0 = 정지)로 눌러 드리프트/흔들림/
+    // 자전을 함께 잠재운다 (전부 로컬시간 t의 함수).
+    localTimeRef.current +=
+      delta * speedRef.current * (reducedMotion ? REDUCED_MOTION_TIME_SCALE : 1)
     const t = localTimeRef.current
     // 카메라(z=CAMERA_Z)에서 이 방울 깊이까지의 뷰포트 크기 환산 계수.
     const depthScale = (CAMERA_Z - motion.baseZ) / CAMERA_Z
@@ -580,10 +604,11 @@ function Bubble({
         t * motion.wobbleFreq * DEPTH_SWAY_FREQ_RATIO + motion.wobblePhase * 1.7,
       ) * DEPTH_SWAY_AMP
     // 호버 확대/복귀 — group 스케일이라 오브제 자식도 함께 커진다.
+    // 축소 모드에서도 확대 자체는 유지(기능적 피드백)하되 사실상 즉시.
     scaleRef.current = dampTo(
       scaleRef.current,
       hovered ? BUBBLE_HOVER_SCALE : 1,
-      HOVER_SCALE_DAMP,
+      reducedMotion ? REDUCED_MOTION_DAMP : HOVER_SCALE_DAMP,
       delta,
     )
     group.scale.setScalar(scaleRef.current)
@@ -625,11 +650,24 @@ function Bubble({
     }
     // 호버 확대 중이면 커진 크기 그대로 터진다.
     popRadiusRef.current = radius * scaleRef.current
+    popReducedRef.current = prefersReducedMotion()
     // mesh가 언마운트되면 pointerOut이 안 오므로 여기서 호버/커서 해제.
     setHovered(false)
     setPopPhase('burst')
     onPop?.()
   }
+
+  // 모션 축소 팝: 파티클 없이 방울만 즉시 사라진다(아래 렌더에서 null).
+  // gone 전환·onPopFinished는 파티클 수명과 같은 시각 — 내비게이션 딜레이
+  // (onPop 쪽)와 리스폰 타이밍이 일반 모드와 정확히 같게 유지된다.
+  useEffect(() => {
+    if (popPhase !== 'burst' || !popReducedRef.current) return
+    const timer = window.setTimeout(() => {
+      setPopPhase('gone')
+      onPopFinished?.()
+    }, POP_PARTICLE_LIFETIME * 1000)
+    return () => window.clearTimeout(timer)
+  }, [popPhase, onPopFinished])
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     // 앞의 방울만 터진다 — 뒤에 겹친 방울까지 연쇄 팝 금지.
@@ -690,6 +728,8 @@ function Bubble({
   if (popPhase === 'gone') return null
 
   if (popPhase === 'burst') {
+    // 모션 축소: 파티클 생략 — 방울이 그냥 사라진다 (타이밍은 위 effect).
+    if (popReducedRef.current) return null
     // 방울 서브트리 전체를 파티클로 교체 — 레이캐스트 대상이 없어
     // 터지는 동안 호버/재클릭이 원천 차단된다 (더블 팝 불가).
     return (
@@ -793,10 +833,11 @@ function BubbleObjet({ src, bubbleRadius, hovered }: BubbleObjetProps) {
   useFrame((_, delta) => {
     const mesh = meshRef.current
     if (!mesh || !material) return
+    // 모션 축소: 공개 자체는 유지(호버의 기능적 결과물)하되 사실상 즉시.
     opacityRef.current = dampTo(
       opacityRef.current,
       hovered ? 1 : 0,
-      OBJET_FADE_DAMP,
+      prefersReducedMotion() ? REDUCED_MOTION_DAMP : OBJET_FADE_DAMP,
       delta,
     )
     material.opacity = opacityRef.current
@@ -903,7 +944,10 @@ function DecorativeBubble({ index }: { index: number }) {
       speedScale: 1,
     })
     // 리스폰 세대는 랩 구간의 시작(화면 아래 경계)에서 떠오른다.
-    if (gen > 0) motion.startFrac = 0
+    // 모션 축소(정지 필드)에서는 화면 밖 스폰이 영영 안 보이므로 시드
+    // 랜덤 위치(필드 안)에 그대로 나타난다 — 축소 모드의 표준 관행대로
+    // 애니메이션 대신 불연속 등장.
+    if (gen > 0 && !prefersReducedMotion()) motion.startFrac = 0
     return { motion, radius }
   }, [index, gen])
 
