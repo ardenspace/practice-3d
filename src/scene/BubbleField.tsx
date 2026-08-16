@@ -1,6 +1,17 @@
-import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { Color, Group, Mesh, ShaderMaterial, SphereGeometry } from 'three'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  Color,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  PlaneGeometry,
+  ShaderMaterial,
+  SphereGeometry,
+  SRGBColorSpace,
+  TextureLoader,
+  type Texture,
+} from 'three'
 import {
   COLOR_ACCENT_CYAN,
   COLOR_ACCENT_PINK,
@@ -12,6 +23,7 @@ import {
   BUBBLE_BASE_ALPHA,
   BUBBLE_FRESNEL_POWER,
   BUBBLE_HEIGHT_SEGMENTS,
+  BUBBLE_HOVER_SCALE,
   BUBBLE_LAYOUT_SEED,
   BUBBLE_SHIMMER_SPEED,
   BUBBLE_WIDTH_SEGMENTS,
@@ -27,6 +39,13 @@ import {
   DEPTH_SWAY_FREQ_RATIO,
   DRIFT_SPEED_MAX,
   DRIFT_SPEED_MIN,
+  HOVER_PAUSE_DAMP,
+  HOVER_SCALE_DAMP,
+  OBJET_FADE_DAMP,
+  OBJET_REVEAL_SCALE_FROM,
+  OBJET_SIZE_RATIO,
+  OBJET_VISIBLE_EPSILON,
+  OBJET_Z_OFFSET_RATIO,
   RESPAWN_MARGIN,
   SPIN_SPEED_MAX,
   SPIN_SPEED_MIN,
@@ -56,8 +75,46 @@ import {
 // 아래에서 리스폰. x는 뷰포트 폭 비율(xFrac)로 저장해 매 프레임 환산
 // (리사이즈/모바일 대응).
 //
-// 상호작용(호버/클릭)은 다음 스텝 — 여기선 떠다니기만 한다. 작품 방울의
-// entry(slug/title/object.src)는 WorkBubbleView가 들고 있다.
+// 호버(데스크톱, Requirement 3): 방울에 포인터를 올리면 그 방울만 정지 +
+// BUBBLE_HOVER_SCALE 확대. 작품 방울은 오브제(entry.object.src 이미지)가
+// 방울 안에서 페이드+스케일 인, 장식 방울은 빈 채로 같은 반응. 해제 시
+// 전부 부드럽게 원복.
+// - 무텔레포트 정지: 위치를 clock 절대시간이 아니라 방울별 로컬시간
+//   (매 프레임 delta × speed 누적)으로 계산한다. speed는 호버에 따라
+//   1↔0으로 지수 감쇠 — 급정지 대신 감속, 해제 시 멈춘 자리에서 재가속.
+// - 쉬머(uTime)는 실제 경과시간을 계속 받아 정지 중에도 색이 흐른다
+//   (죽은 정지가 아니라 살아있는 정지).
+// 클릭(터짐/내비게이션)과 모바일 길게 누르기는 다음 스텝.
+
+// 오브제 평면 공유 지오메트리 (단위 정사각형, 크기는 mesh scale).
+const objetGeometry = new PlaneGeometry(1, 1)
+
+// 프레임레이트 독립 지수 감쇠 (수동 damp — 외부 라이브러리 없이).
+function dampTo(
+  current: number,
+  target: number,
+  lambda: number,
+  dt: number,
+): number {
+  return current + (target - current) * (1 - Math.exp(-lambda * dt))
+}
+
+// 포인터 커서 — 호버 중인 방울이 하나라도 있으면 pointer. 카운터 방식이라
+// 인접 방울 간 over/out 이벤트 순서가 뒤섞여도 안전하다. (drei useCursor를
+// 안 쓰는 이유: drei 배럴 임포트를 피해 jsdom 테스트 경로를 가볍게 유지.)
+let cursorHoverCount = 0
+
+function useHoverCursor(hovered: boolean): void {
+  useEffect(() => {
+    if (!hovered) return
+    cursorHoverCount += 1
+    document.body.style.cursor = 'pointer'
+    return () => {
+      cursorHoverCount -= 1
+      if (cursorHoverCount === 0) document.body.style.cursor = ''
+    }
+  }, [hovered])
+}
 
 // 전 방울이 공유하는 단위 구 (반지름은 mesh scale). 지오메트리는 순수
 // 계산이라 import 시점 생성이 jsdom에서도 안전하다.
@@ -176,13 +233,24 @@ interface BubbleProps {
   radius: number
   motion: BubbleMotion
   rimAlpha: number
-  /** 훗날 오브제 등 방울과 함께 움직일 자식 (group 좌표계). */
-  children?: ReactNode
+  /**
+   * 오브제 등 방울과 함께 움직일 자식 (group 좌표계). 호버 상태를 받아
+   * 렌더하는 함수 — 작품 방울의 오브제 공개가 이 인자로 구동된다.
+   */
+  children?: (hovered: boolean) => ReactNode
 }
 
 function Bubble({ name, radius, motion, rimAlpha, children }: BubbleProps) {
   const groupRef = useRef<Group>(null)
   const meshRef = useRef<Mesh>(null)
+  const [hovered, setHovered] = useState(false)
+  // 무텔레포트 정지의 상태: 로컬시간(위치의 유일한 시간축) + 진행 속도 +
+  // 현재 스케일. 렌더가 아니라 프레임 루프가 굴리는 값이라 ref.
+  const localTimeRef = useRef(0)
+  const speedRef = useRef(1)
+  const scaleRef = useRef(1)
+
+  useHoverCursor(hovered)
 
   const uniforms = useMemo(
     () => ({
@@ -213,12 +281,21 @@ function Bubble({ name, radius, motion, rimAlpha, children }: BubbleProps) {
 
   useEffect(() => () => material.dispose(), [material])
 
-  useFrame(({ clock, viewport }) => {
+  useFrame(({ clock, viewport }, delta) => {
     const group = groupRef.current
     const mesh = meshRef.current
     if (!group || !mesh) return
 
-    const t = clock.elapsedTime
+    // 호버 → 속도가 0으로 감쇠(감속 정지), 해제 → 1로 복귀(재가속).
+    // 위치는 로컬시간의 함수이므로 멈춘 자리에서 그대로 이어진다.
+    speedRef.current = dampTo(
+      speedRef.current,
+      hovered ? 0 : 1,
+      HOVER_PAUSE_DAMP,
+      delta,
+    )
+    localTimeRef.current += delta * speedRef.current
+    const t = localTimeRef.current
     // 카메라(z=CAMERA_Z)에서 이 방울 깊이까지의 뷰포트 크기 환산 계수.
     const depthScale = (CAMERA_Z - motion.baseZ) / CAMERA_Z
     const halfWidth = (viewport.width / 2) * depthScale
@@ -236,10 +313,25 @@ function Bubble({ name, radius, motion, rimAlpha, children }: BubbleProps) {
       Math.sin(
         t * motion.wobbleFreq * DEPTH_SWAY_FREQ_RATIO + motion.wobblePhase * 1.7,
       ) * DEPTH_SWAY_AMP
-    // 자전은 mesh에만 — group은 회전하지 않으므로 훗날 오브제는 정면 유지.
+    // 호버 확대/복귀 — group 스케일이라 오브제 자식도 함께 커진다.
+    scaleRef.current = dampTo(
+      scaleRef.current,
+      hovered ? BUBBLE_HOVER_SCALE : 1,
+      HOVER_SCALE_DAMP,
+      delta,
+    )
+    group.scale.setScalar(scaleRef.current)
+    // 자전은 mesh에만 — group은 회전하지 않으므로 오브제는 정면 유지.
     mesh.rotation.y = t * motion.spinSpeed
-    uniforms.uTime.value = t
+    // 쉬머는 실제 시간 — 정지 중에도 무지갯빛은 계속 흐른다.
+    uniforms.uTime.value = clock.elapsedTime
   })
+
+  const handlePointerOver = (event: ThreeEvent<PointerEvent>) => {
+    // 겹친 방울 중 가장 앞의 것만 반응.
+    event.stopPropagation()
+    setHovered(true)
+  }
 
   return (
     <group ref={groupRef} name={name}>
@@ -248,9 +340,110 @@ function Bubble({ name, radius, motion, rimAlpha, children }: BubbleProps) {
         geometry={bubbleGeometry}
         material={material}
         scale={radius}
+        onPointerOver={handlePointerOver}
+        onPointerOut={() => setHovered(false)}
       />
-      {children}
+      {children?.(hovered)}
     </group>
+  )
+}
+
+// ── 오브제 (작품 방울 안의 이미지) ──
+
+// 비동기 텍스처 로드 — Suspense/throw 없이 상태로만. 로드 실패(파일 누락·
+// 지연)는 오브제가 안 보일 뿐 씬은 그대로 산다 (Failure Behavior: 백지
+// 금지, 조용하게). src는 등록부 검증(B1)을 거친 사이트 상대 경로다.
+function useObjetTexture(src: string): Texture | null {
+  const [texture, setTexture] = useState<Texture | null>(null)
+
+  useEffect(() => {
+    let disposed = false
+    let loaded: Texture | null = null
+    new TextureLoader().load(
+      src,
+      (tex) => {
+        if (disposed) {
+          tex.dispose()
+          return
+        }
+        tex.colorSpace = SRGBColorSpace
+        loaded = tex
+        setTexture(tex)
+      },
+      undefined,
+      () => {
+        // 실패는 조용히 — 방울은 빈 채로 정상 동작.
+      },
+    )
+    return () => {
+      disposed = true
+      loaded?.dispose()
+      setTexture(null)
+    }
+  }, [src])
+
+  return texture
+}
+
+interface BubbleObjetProps {
+  src: string
+  bubbleRadius: number
+  hovered: boolean
+}
+
+// 방울 중심보다 살짝 카메라 쪽의 정면 평면에 오브제 텍스처(투명 배경
+// webp)를 얹는다. 호버 시 페이드 인 + REVEAL_SCALE_FROM→1 스케일 인,
+// 해제 시 역재생. 마운트 즉시 로드를 시작해 첫 호버에 지연이 없다.
+function BubbleObjet({ src, bubbleRadius, hovered }: BubbleObjetProps) {
+  const texture = useObjetTexture(src)
+  const meshRef = useRef<Mesh>(null)
+  const opacityRef = useRef(0)
+
+  const material = useMemo(
+    () =>
+      texture
+        ? new MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            opacity: 0,
+            depthWrite: false,
+            toneMapped: false, // 원본 렌더 색 그대로
+          })
+        : null,
+    [texture],
+  )
+
+  useEffect(() => () => material?.dispose(), [material])
+
+  useFrame((_, delta) => {
+    const mesh = meshRef.current
+    if (!mesh || !material) return
+    opacityRef.current = dampTo(
+      opacityRef.current,
+      hovered ? 1 : 0,
+      OBJET_FADE_DAMP,
+      delta,
+    )
+    material.opacity = opacityRef.current
+    const size = bubbleRadius * OBJET_SIZE_RATIO
+    mesh.scale.setScalar(
+      size * lerp(OBJET_REVEAL_SCALE_FROM, 1, opacityRef.current),
+    )
+    mesh.visible = opacityRef.current > OBJET_VISIBLE_EPSILON
+  })
+
+  if (!material) return null
+
+  return (
+    <mesh
+      ref={meshRef}
+      geometry={objetGeometry}
+      material={material}
+      position={[0, 0, bubbleRadius * OBJET_Z_OFFSET_RATIO]}
+      visible={false}
+      // 오브제가 방울의 포인터 이벤트를 가로채지 않도록 레이캐스트 제외.
+      raycast={() => null}
+    />
   )
 }
 
@@ -260,8 +453,9 @@ interface WorkBubbleViewProps {
   total: number
 }
 
-// 작품 방울 — entry(slug/title/object.src)를 여기서 들고 간다. 다음 스텝의
-// 호버(정지+오브제 공개)/클릭(터짐+내비게이션) 상태는 이 컴포넌트에 얹는다.
+// 작품 방울 — entry(slug/title/object.src)를 여기서 들고 간다. 호버 시
+// 오브제 공개는 Bubble의 함수 자식으로 구동. 클릭(터짐+내비게이션)은
+// 다음 스텝에 이 컴포넌트에 얹는다.
 function WorkBubbleView({ bubble, index, total }: WorkBubbleViewProps) {
   const motion = useMemo(() => {
     const rand = mulberry32(BUBBLE_LAYOUT_SEED + index * 7919)
@@ -281,7 +475,15 @@ function WorkBubbleView({ bubble, index, total }: WorkBubbleViewProps) {
       radius={WORK_BUBBLE_RADIUS}
       motion={motion}
       rimAlpha={WORK_RIM_ALPHA}
-    />
+    >
+      {(hovered) => (
+        <BubbleObjet
+          src={bubble.entry.object.src}
+          bubbleRadius={WORK_BUBBLE_RADIUS}
+          hovered={hovered}
+        />
+      )}
+    </Bubble>
   )
 }
 

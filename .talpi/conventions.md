@@ -31,6 +31,19 @@
   x/y 배치는 뷰포트 비율 기반이라 리사이즈/모바일 대응. 매직 넘버는 전부
   `src/scene/constants.ts`. Home Canvas에 카메라 상수(CAMERA_Z/FOV) 명시.
   상호작용은 다음 스텝 몫 — 지금은 떠다니기만. 16/16 green.
+- step 4 (데스크톱 호버): `src/scene/BubbleField.tsx` — 방울 mesh에 R3F
+  onPointerOver/Out (over는 stopPropagation — 겹친 방울 중 앞의 것만).
+  호버 = 정지 + `BUBBLE_HOVER_SCALE`(1.3) 확대, 작품 방울은 오브제
+  (`entry.object.src`)가 방울 안 정면 평면에 페이드+스케일 인. 무텔레포트
+  정지: 위치를 clock 절대시간이 아닌 방울별 로컬시간(delta×speed 누적)
+  으로 계산, speed는 1↔0 지수 감쇠(`dampTo`, 프레임레이트 독립) — 감속
+  정지·멈춘 자리 재가속. 쉬머(uTime)는 실제 시간이라 정지 중에도 흐름.
+  오브제 텍스처는 마운트 시 비동기 TextureLoader(수동, Suspense/throw
+  없음) — 실패 시 방울만 빈 채로 정상(백지 금지). 오브제 mesh는
+  `raycast={() => null}`. 커서는 모듈 카운터 기반 pointer 토글 (drei
+  배럴 임포트 회피 — jsdom 테스트 경로 경량 유지). 새 상수 8개는
+  `constants.ts` "호버" 섹션. 클릭/모바일 길게 누르기는 다음 스텝.
+  16/16 green.
 
 ## Baseline (applies unless overridden)
 
@@ -94,10 +107,13 @@
 - `src/scene/BubbleField.tsx` — 방울 필드 (default export, Canvas 자식
   전용 — DOM 아님). 작품 방울(`WorkBubbleView`, entry 보유) + 장식 방울
   (`DecorativeBubble`) + 공용 `Bubble`(모션 useFrame + 프레넬 림
-  ShaderMaterial + group/mesh 분리 — 자전은 mesh만, group은 훗날 오브제
+  ShaderMaterial + group/mesh 분리 — 자전은 mesh만, group은 오브제
   자식용으로 무회전). 방울별 모션 파라미터는 mulberry32 시드 랜덤으로
-  마운트 시 1회 생성. 호버/클릭 스텝은 이 파일의 `WorkBubbleView`/`Bubble`
-  에 상태를 얹는다.
+  마운트 시 1회 생성. 호버 상태는 `Bubble` 내부(useState) — 자식은
+  `children?: (hovered: boolean) => ReactNode` 함수로 받아 오브제
+  (`BubbleObjet`)가 호버를 구동받는다. 파일 내 공용: `dampTo`(지수 감쇠
+  스무딩), `useHoverCursor`(카운터 기반 pointer 커서), `useObjetTexture`
+  (비동기 텍스처, 실패 조용). 클릭(터짐)/모바일 스텝은 여기에 얹는다.
 - `src/scene/HomeFallback.tsx` — 홈/폴백 화면 컴포넌트 (default export).
   배경 이미지 + `SITE_TITLE` h1 + 등록부 전 작품 텍스트 링크, 루트에
   `data-testid={HOME_TESTID}`. Phase 1에서는 `/`의 홈 화면이며, Phase 2

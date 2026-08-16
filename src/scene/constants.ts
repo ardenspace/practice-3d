@@ -41,6 +41,18 @@ export const DEPTH_SWAY_FREQ_RATIO = 0.7 // 좌우 흔들림 주파수 대비
 export const SPIN_SPEED_MIN = 0.05 // rad/s, 느린 자전
 export const SPIN_SPEED_MAX = 0.2
 
+// ── 호버 (정지 + 확대 + 오브제 공개 — Requirement 3, 연출은 Delegated) ──
+// 스무딩은 프레임레이트 독립 지수 감쇠: v += (target - v) * (1 - exp(-λ·dt)).
+// λ(1/s)가 클수록 빠르게 수렴한다.
+export const BUBBLE_HOVER_SCALE = 1.3 // 호버 시 방울 확대 배율 (spec 위임: 1.2–1.4)
+export const HOVER_SCALE_DAMP = 6 // 확대↔복귀 스무딩 λ
+export const HOVER_PAUSE_DAMP = 5 // 모션 속도 1↔0 스무딩 λ (급정지 대신 감속)
+export const OBJET_SIZE_RATIO = 1.15 // 오브제 평면 한 변 / 방울 반지름 (구 안에 수렴)
+export const OBJET_Z_OFFSET_RATIO = 0.2 // 오브제 평면의 방울 중심 대비 +z (카메라 쪽)
+export const OBJET_FADE_DAMP = 7 // 오브제 페이드 인/아웃 스무딩 λ
+export const OBJET_REVEAL_SCALE_FROM = 0.75 // 공개 시작 스케일 (페이드와 함께 1로)
+export const OBJET_VISIBLE_EPSILON = 0.01 // 이하 불투명도는 렌더 스킵
+
 // ── 지오메트리 ──
 export const BUBBLE_WIDTH_SEGMENTS = 48
 export const BUBBLE_HEIGHT_SEGMENTS = 32
