@@ -12,3 +12,6 @@
 - [2026-08-16] phase 3 contracts: none
 - [2026-08-16] phase 3 verified
 - [2026-08-16] phase 3 reported
+- [2026-08-16] smoke run passed (real browser walk: home→hover→objet→pop→navigate→deeplink; favicon 404 found+fixed)
+- [2026-08-16] run review (through 413af6d): 6 findings (0 fixed, 6 noted)
+- [2026-08-16] final report sent, awaiting acceptance

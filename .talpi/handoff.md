@@ -1,34 +1,27 @@
 # Handoff
 
-업데이트: 2026-08-16, Phase 2 완료 직후.
+업데이트: 2026-08-16, completion 직후 — **최종 리포트 발송, 사람 수락 대기 중**.
 
-## 어디까지 왔나
+## 상태
 
-- Phase 1 (뼈대 사이트) 완료: verifier CLEAN. 등록부·에셋·라우팅, B1–B3 green.
-- Phase 2 (방울 씬 데스크톱) 완료: 5 스텝 + verifier [FIX] 2건 수정 커밋
-  (2aee836). B4 green, 테스트 16/16.
-- 씬 현황: 프레넬 셰이더 방울(작품 1 + 장식 12)이 우주 배경 위 부유,
-  호버 시 정지+1.3x 확대+오브제 공개, 클릭 시 파티클 터짐 → 작품 방울은
-  420ms 후 `/works/<slug>` 이동, 장식 방울은 2.6s 후 아래에서 리스폰.
-  WebGL 실패/상실 시 HomeFallback 폴백.
+- 3개 phase 전부 완료 + 검증 (phase 1·3 CLEAN, phase 2 [FIX] 2건 수정).
+- 스모크 런 통과: 실브라우저(SwiftShader WebGL)로 홈→호버→오브제 공개→
+  터짐→`/works/vending-machine` 도착→홈 복귀→딥링크까지 걸음. 에러 0.
+  도중 favicon 404 발견 → 수정 커밋(자체 SVG 파비콘).
+- run review: [FIX] 0, [NOTE] 6 (최종 리포트에 목록) — 사람 판정 대기.
+- 테스트 27/27 green, 빌드 정적 산출물만, 외부 런타임 요청 0.
+- 마지막 커밋 413af6d (run base 8dcc2f9, 총 15 커밋).
 
-## 다음 할 일
+## 다음 액션 (사람)
 
-- Phase 3 (모바일 + 마감). Contracts 없음 → 첫 스텝 디스패치 시
-  저널에 `phase 3 contracts: none` 기록.
-  - step 1: 탭/길게 누르기 (`LONG_PRESS_MS = 250` 상수는 아직 없음 —
-    theme.ts에 추가 예정, conventions Design Tokens 참조)
-  - step 2: 홈 타이포·카피 + 페이지 전환 연출 + 작품 페이지 에러 바운더리
-  - step 3: 마감 검수 패스 (스모크 데스크톱/모바일, vite preview 딥링크,
-    정적 산출물·외부 요청 없음 확인)
-- Phase 3 시작 시 conventions.md "Prior work this phase" 블록 리셋.
+최종 리포트에 답: 수락하면 run_status → done. 거부/수정 요청이면
+plan.md에 "Acceptance fixes" phase를 추가해 phase loop 재개 (talpirun의
+rejection 경로). NOTE 6건 각각에 대한 판정 포함 요망.
 
-## 조심할 것
+## 참고
 
-- `src/test-setup.ts` 삭제 금지 (jsdom 라우터 내비게이션 보정).
-- `public/bubbles.glb` 미사용이지만 삭제는 사람 확인 필요 (Delegated 조항).
-- 방울 재질: 알파 캔버스 + CSS 배경 구조라 transmission 계열 머티리얼은
-  배경 샘플이 없어 어둡게 나옴 — 프레넬 ShaderMaterial 유지.
-- 씬은 `deriveWorkBubbles(works)`만 소비 (B1). 스타일 공유는
-  `src/scene/homeStyles.ts`, 매직 넘버는 `src/scene/constants.ts`.
-- dev 서버 5173 (8080/8000/8081/5000/7000 금지).
+- 수동 검수 체크리스트: `.talpi/manual-check.md` (모바일 실기기, 실행 중
+  컨텍스트 상실, 에러 바운더리 등 눈검수 항목).
+- 스크린샷: 스크래치패드 `smoke-*.png` (세션 한정 경로라 휘발성).
+- vite preview가 4173 포트에 떠 있을 수 있음 (검수용) — 정리 자유.
+- `src/test-setup.ts` 삭제 금지. `public/bubbles.glb` 삭제는 사람 몫.
