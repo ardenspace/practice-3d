@@ -1,4 +1,9 @@
 import type { ComponentType } from 'react'
+import VendingMachinePage, {
+  VENDING_MACHINE_BLURB,
+  VENDING_MACHINE_OBJECT_SRC,
+  VENDING_MACHINE_TITLE,
+} from './vending-machine/VendingMachinePage.tsx'
 
 /**
  * B1 — 작품 등록 계약. 작품 등록의 단일 진실.
@@ -27,5 +32,12 @@ export interface WorkEntry {
   Page: ComponentType
 }
 
-// Stub: 실제 항목(v1: vending-machine)은 이후 스텝에서 등록된다.
-export const works: readonly WorkEntry[] = []
+export const works: readonly WorkEntry[] = [
+  {
+    slug: 'vending-machine',
+    title: VENDING_MACHINE_TITLE,
+    blurb: VENDING_MACHINE_BLURB,
+    object: { type: 'image', src: VENDING_MACHINE_OBJECT_SRC },
+    Page: VendingMachinePage,
+  },
+]

@@ -8,8 +8,7 @@ export interface WorkBubble {
   entry: WorkEntry
 }
 
-// Stub: 실제 파생은 씬 구현 스텝에서 채워진다. 계약 테스트가 임포트할 수 있는
-// 정직한 최소치 — 구현 전까지 파생 계약 테스트는 실패한다.
-export function deriveWorkBubbles(_entries: readonly WorkEntry[]): WorkBubble[] {
-  return []
+/** 등록부 순서 그대로, 항목당 정확히 방울 1개. */
+export function deriveWorkBubbles(entries: readonly WorkEntry[]): WorkBubble[] {
+  return entries.map((entry) => ({ entry }))
 }

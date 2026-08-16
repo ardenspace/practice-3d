@@ -20,6 +20,10 @@
   Blender 렌더 주의: vending-machine.blend 카메라에 Track-To 제약
   (BubbleTarget 타깃) 있음 — 재렌더 시 제약 제거 후 카메라 조작.
   .blend 파일은 읽기 전용 취급 (저장 금지).
+- step 4: 등록부·파생 구현 — `src/works/registry.ts`(자판기 항목),
+  `src/works/vending-machine/VendingMachinePage.tsx`(v1 페이지 셸 +
+  메타 상수), `src/scene/bubbles.ts` 구현 완료. B1·B2 green,
+  B3 5개만 red (routes 스텁 유지).
 
 ## Baseline (applies unless overridden)
 
@@ -52,11 +56,13 @@
   홈으로 리다이렉트"를 이 아이디로 판별한다.
 - `src/works/registry.ts` — 등록부 모듈, 작품 등록의 단일 진실.
   타입 `WorkEntry`/`WorkObject`(판별 유니온, v1 `ImageObject`) +
-  `works: readonly WorkEntry[]` (현재 빈 배열 스텁).
-- `src/scene/bubbles.ts` — 방울 목록 파생 모듈.
+  `works: readonly WorkEntry[]`. 현재 항목: `vending-machine`.
+  패턴: 작품 메타 텍스트(title/blurb/object src)는 작품 폴더의 Page
+  파일에서 상수로 정의하고 등록부가 임포트한다 (리터럴 중복 방지,
+  임포트 방향은 registry → Page 단방향).
+- `src/scene/bubbles.ts` — 방울 목록 파생 모듈 (구현 완료).
   `deriveWorkBubbles(entries): WorkBubble[]` (`WorkBubble = { entry }`,
   등록부 순서 유지, 항목당 정확히 1개). 씬은 이 목록만 소비한다.
-  현재 스텁(빈 배열 반환) — 씬 스텝에서 구현.
 - `src/routes.tsx` — 라우팅 표면의 단일 진실 `routes: RouteObject[]`.
   App/main은 이 배열로 라우터를 만든다. 현재 catch-all null 스텁.
 
