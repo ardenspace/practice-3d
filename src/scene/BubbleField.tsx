@@ -19,9 +19,11 @@ import {
   COLOR_ACCENT_CYAN,
   COLOR_ACCENT_PINK,
   COLOR_NEBULA_PURPLE,
+  LONG_PRESS_MS,
 } from '../theme.ts'
 import { works } from '../works/registry.ts'
 import { deriveWorkBubbles, type WorkBubble } from './bubbles.ts'
+import { decideTouchAction, shouldSuppressClick } from './touch.ts'
 import {
   BUBBLE_BASE_ALPHA,
   BUBBLE_FRESNEL_POWER,
@@ -109,7 +111,17 @@ import {
 // 있고 콜백으로 주입 — R3F 리컨실러 안에서 useNavigate를 쓰지 않는다).
 // 장식 방울은 터지기만 하고, 파티클 소멸 후 POP_RESPAWN_DELAY_MS 뒤 새
 // 모션 파라미터로 화면 아래에서 리스폰한다 (필드가 비어가지 않게).
-// 모바일 길게 누르기/탭은 다음 스텝.
+//
+// 터치(모바일, Requirement 4 — Decided 매핑: 길게 누르기 = 호버, 짧은
+// 탭 = 터뜨리기): pointerType === 'touch'인 pointerdown에서 LONG_PRESS_MS
+// 타이머를 걸어 도달 순간 호버(정지+확대+오브제)를 켠다. 뗄 때(pointerup)
+// 경과시간을 decideTouchAction(touch.ts)으로 판정 — 탭이면 데스크톱
+// 클릭과 같은 startPop, 길게 누르기 해제면 호버 해제만 (절대 팝 없음).
+// 방울 밖으로 드래그/pointercancel도 해제와 동일 (팝 없음). 터치 뒤에
+// 브라우저가 합성하는 click은 shouldSuppressClick(pointerType + 최근 터치
+// 종료 시각)으로 무시한다 — 이 억제가 없으면 탭이 이중 팝하거나 길게
+// 누르기 해제가 팝으로 샌다. 마우스는 pointerType 분기로 기존 호버/클릭
+// 경로 그대로다.
 
 // 오브제 평면 공유 지오메트리 (단위 정사각형, 크기는 mesh scale).
 const objetGeometry = new PlaneGeometry(1, 1)
@@ -139,6 +151,18 @@ function useHoverCursor(hovered: boolean): void {
       if (cursorHoverCount === 0) document.body.style.cursor = ''
     }
   }, [hovered])
+}
+
+// ── 터치 click 억제용 모듈 상태 ──
+// 마지막 터치 종료(뗌/취소/방울 밖 이탈) 시각. 터치가 합성한 click은 뗀
+// 지점 아래의 *다른* 방울에 떨어질 수 있어(앞 방울이 이미 터진 뒤 등)
+// 방울 인스턴스 상태로는 못 막는다 — 전 방울이 공유하는 모듈 값으로 둔다.
+// pointerType을 주는 브라우저에서는 pointerType 판별이 우선이고, 이 값은
+// pointerType 없는 click의 폴백 판별에만 쓰인다 (touch.ts 참조).
+let lastTouchEndAt = Number.NEGATIVE_INFINITY
+
+function markTouchEnd(): void {
+  lastTouchEndAt = performance.now()
 }
 
 // 전 방울이 공유하는 단위 구 (반지름은 mesh scale). 지오메트리는 순수
@@ -400,6 +424,22 @@ function Bubble({
   const localTimeRef = useRef(0)
   const speedRef = useRef(1)
   const scaleRef = useRef(1)
+  // 진행 중인 터치 (이 방울에서 pointerdown으로 시작된 것만). timer는
+  // LONG_PRESS_MS 도달 순간 호버를 켜는 예약, startedAt은 뗄 때 탭/길게
+  // 누르기 판정(decideTouchAction)의 기준 시각.
+  const touchRef = useRef<{
+    pointerId: number
+    startedAt: number
+    timer: number
+  } | null>(null)
+
+  const clearTouch = () => {
+    if (touchRef.current) window.clearTimeout(touchRef.current.timer)
+    touchRef.current = null
+  }
+
+  // 누른 채로 언마운트(터짐/폴백 전환)되면 길게 누르기 타이머 해제.
+  useEffect(() => clearTouch, [])
 
   useHoverCursor(hovered)
 
@@ -481,12 +521,24 @@ function Bubble({
   const handlePointerOver = (event: ThreeEvent<PointerEvent>) => {
     // 겹친 방울 중 가장 앞의 것만 반응.
     event.stopPropagation()
+    // 터치는 pointerdown 순간 over가 함께 오므로 여기서 호버를 켜면 짧은
+    // 탭에도 호버가 번쩍인다 — 터치의 호버는 길게 누르기 타이머 몫.
+    if (event.pointerType === 'touch') return
     setHovered(true)
   }
 
-  const handleClick = (event: ThreeEvent<MouseEvent>) => {
-    // 앞의 방울만 터진다 — 뒤에 겹친 방울까지 연쇄 팝 금지.
-    event.stopPropagation()
+  const handlePointerOut = (event: ThreeEvent<PointerEvent>) => {
+    // 터치 진행 중 방울 밖으로 드래그 = 해제와 동일 (원복만, 팝 없음).
+    // 이 터치가 나중에 합성할 click도 억제 대상으로 표시한다.
+    if (event.pointerType === 'touch' && touchRef.current) {
+      clearTouch()
+      markTouchEnd()
+    }
+    setHovered(false)
+  }
+
+  // 터짐 시작 — 데스크톱 클릭과 터치 짧은 탭이 공유하는 단일 경로.
+  const startPop = () => {
     if (popPhase !== 'idle') return
     const group = groupRef.current
     if (group) {
@@ -502,6 +554,62 @@ function Bubble({
     setHovered(false)
     setPopPhase('burst')
     onPop?.()
+  }
+
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    // 앞의 방울만 터진다 — 뒤에 겹친 방울까지 연쇄 팝 금지.
+    event.stopPropagation()
+    // 터치 유래 click 억제 (Requirement 4): 탭의 팝은 pointerup에서 이미
+    // 처리했고, 길게 누르기 해제는 절대 팝이 아니다. 이 가드가 없으면
+    // 터치 뒤 브라우저가 합성하는 click이 이중 팝을 만들거나 길게 누르기
+    // 해제를 팝/내비게이션으로 새게 한다.
+    const pointerType = (event.nativeEvent as Partial<PointerEvent>)
+      .pointerType
+    if (shouldSuppressClick(pointerType, performance.now() - lastTouchEndAt)) {
+      return
+    }
+    startPop()
+  }
+
+  const handlePointerDown = (event: ThreeEvent<PointerEvent>) => {
+    // 마우스/펜은 기존 호버(over/out)·클릭 경로 그대로 — 터치만 여기서.
+    if (event.pointerType !== 'touch') return
+    // 앞의 방울만 터치 인터랙션을 시작한다 (over/click과 동일 규칙).
+    event.stopPropagation()
+    clearTouch()
+    touchRef.current = {
+      pointerId: event.pointerId,
+      startedAt: performance.now(),
+      // LONG_PRESS_MS 도달 순간 호버로 전환 — 누르는 동안 정지+확대
+      // (+작품 방울 오브제 공개), 뗄 때까지 유지.
+      timer: window.setTimeout(() => setHovered(true), LONG_PRESS_MS),
+    }
+  }
+
+  const handlePointerUp = (event: ThreeEvent<PointerEvent>) => {
+    if (event.pointerType !== 'touch') return
+    // 어떤 터치든 끝났다 — 이 뒤의 합성 click은 (어느 방울에 떨어지든)
+    // 폴백 시간창 판별로 억제된다.
+    markTouchEnd()
+    const touch = touchRef.current
+    if (!touch || touch.pointerId !== event.pointerId) return
+    event.stopPropagation()
+    clearTouch()
+    if (decideTouchAction(performance.now() - touch.startedAt) === 'tap') {
+      // 짧은 탭 = 데스크톱 클릭과 동일 — 터뜨리기 (작품 방울은 터짐 후
+      // 내비게이션, 장식 방울은 터지기만; Requirements 5–6).
+      startPop()
+    } else {
+      // 길게 누르기 해제 = 호버 해제와 동일 — 원복만, 절대 팝 없음.
+      setHovered(false)
+    }
+  }
+
+  const handlePointerCancel = () => {
+    // 시스템 제스처 등으로 터치 취소 — 해제와 동일 (원복만, 팝 없음).
+    clearTouch()
+    markTouchEnd()
+    setHovered(false)
   }
 
   if (popPhase === 'gone') return null
@@ -529,7 +637,10 @@ function Bubble({
         material={material}
         scale={radius}
         onPointerOver={handlePointerOver}
-        onPointerOut={() => setHovered(false)}
+        onPointerOut={handlePointerOut}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         onClick={handleClick}
       />
       {children?.(hovered)}

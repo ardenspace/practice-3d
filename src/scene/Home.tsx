@@ -41,6 +41,10 @@ const rootStyle: CSSProperties = {
 const canvasLayerStyle: CSSProperties = {
   position: 'absolute',
   inset: 0,
+  // 방울 터치 인터랙션(Requirement 4)이 브라우저 스크롤/제스처와 경합하지
+  // 않도록 씬 레이어에서만 기본 터치 동작을 끈다 — DOM 오버레이(제목)와
+  // 폴백/작품 페이지의 링크에는 영향 없음.
+  touchAction: 'none',
 }
 
 const titleStyle: CSSProperties = {

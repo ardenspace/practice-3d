@@ -75,6 +75,13 @@ export const POP_NAVIGATE_DELAY_MS = 420
 // 장식 방울 리스폰: 터짐 완료 후 이 지연 뒤 화면 아래에서 새로 떠오른다.
 export const POP_RESPAWN_DELAY_MS = 2600
 
+// ── 터치 (모바일 탭/길게 누르기 — Requirement 4) ──
+// 탭/길게 누르기 임계값 자체는 디자인 토큰 LONG_PRESS_MS (src/theme.ts).
+// 터치 종료(뗌/취소/이탈) 후 이 시간 안에 pointerType 정보 없이 도착한
+// click은 터치가 합성한 것으로 보고 무시한다 — click에 pointerType을 안
+// 주는 구형 브라우저용 폴백. 판정 로직은 touch.ts(shouldSuppressClick).
+export const TOUCH_CLICK_SUPPRESS_MS = 500
+
 // ── 지오메트리 ──
 export const BUBBLE_WIDTH_SEGMENTS = 48
 export const BUBBLE_HEIGHT_SEGMENTS = 32

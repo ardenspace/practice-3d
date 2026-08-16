@@ -1,32 +1,34 @@
 # Handoff
 
-업데이트: 2026-08-16, Phase 1 완료 직후.
+업데이트: 2026-08-16, Phase 2 완료 직후.
 
 ## 어디까지 왔나
 
-- Phase 1 (뼈대 사이트) 완료: 5 스텝 전부 커밋, 계약 테스트 14/14 green,
-  verifier CLEAN. base 8dcc2f9, 마지막 커밋 0e2e61f.
-- 스택: Vite 7 + React 19 + TS strict + bun + Vitest + react-router 7.
-  `bun run dev`(5173) / `build` / `test` 전부 동작.
-- 화면: `/` = HomeFallback(배경+제목+작품 링크, 아직 씬 없음),
-  `/works/vending-machine` = v1 페이지 셸. 알 수 없는 경로 → 홈.
-- 에셋: `public/backdrop.webp`, `public/works/vending-machine/object.webp`
-  (렌더 완료, B2 green).
+- Phase 1 (뼈대 사이트) 완료: verifier CLEAN. 등록부·에셋·라우팅, B1–B3 green.
+- Phase 2 (방울 씬 데스크톱) 완료: 5 스텝 + verifier [FIX] 2건 수정 커밋
+  (2aee836). B4 green, 테스트 16/16.
+- 씬 현황: 프레넬 셰이더 방울(작품 1 + 장식 12)이 우주 배경 위 부유,
+  호버 시 정지+1.3x 확대+오브제 공개, 클릭 시 파티클 터짐 → 작품 방울은
+  420ms 후 `/works/<slug>` 이동, 장식 방울은 2.6s 후 아래에서 리스폰.
+  WebGL 실패/상실 시 HomeFallback 폴백.
 
 ## 다음 할 일
 
-- Phase 2 (방울 씬 — 데스크톱). 첫 스텝 = B4 폴백 계약 테스트 핀
-  (WebGL 차단 로드 시 HomeFallback 렌더). plan.md Phase 2 체크박스 참조.
-- 씬은 `src/scene/bubbles.ts`의 `deriveWorkBubbles(works)` 목록을
-  소비해야 함 (B1 씬 보장 — 파생 모듈 수준으로 이미 핀됨).
-- HomeFallback(`src/scene/HomeFallback.tsx`)을 B4 폴백으로 그대로 재사용.
+- Phase 3 (모바일 + 마감). Contracts 없음 → 첫 스텝 디스패치 시
+  저널에 `phase 3 contracts: none` 기록.
+  - step 1: 탭/길게 누르기 (`LONG_PRESS_MS = 250` 상수는 아직 없음 —
+    theme.ts에 추가 예정, conventions Design Tokens 참조)
+  - step 2: 홈 타이포·카피 + 페이지 전환 연출 + 작품 페이지 에러 바운더리
+  - step 3: 마감 검수 패스 (스모크 데스크톱/모바일, vite preview 딥링크,
+    정적 산출물·외부 요청 없음 확인)
+- Phase 3 시작 시 conventions.md "Prior work this phase" 블록 리셋.
 
 ## 조심할 것
 
-- `src/test-setup.ts`는 지우면 안 됨 — jsdom에서 react-router 내비게이션
-  깨짐 (conventions.md 참조).
-- `public/bubbles.glb`(664KB) 사용 여부는 위임 사항이나, 안 쓰기로 해도
-  파일 삭제는 사람 확인 필요 (spec Delegated 항목).
-- .blend 파일은 읽기 전용 취급. 재렌더 시 카메라 Track-To 제약 주의
-  (conventions.md step 3 노트).
-- dev 서버 포트: 5173 (8080/8000/8081/5000/7000 금지).
+- `src/test-setup.ts` 삭제 금지 (jsdom 라우터 내비게이션 보정).
+- `public/bubbles.glb` 미사용이지만 삭제는 사람 확인 필요 (Delegated 조항).
+- 방울 재질: 알파 캔버스 + CSS 배경 구조라 transmission 계열 머티리얼은
+  배경 샘플이 없어 어둡게 나옴 — 프레넬 ShaderMaterial 유지.
+- 씬은 `deriveWorkBubbles(works)`만 소비 (B1). 스타일 공유는
+  `src/scene/homeStyles.ts`, 매직 넘버는 `src/scene/constants.ts`.
+- dev 서버 5173 (8080/8000/8081/5000/7000 금지).

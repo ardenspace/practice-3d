@@ -10,6 +10,11 @@ export const HOME_TESTID = 'home'
 // 배경 이미지 (B2: public/backdrop.webp 한 장). 홈/폴백과 Phase 2 씬이 공유.
 export const BACKDROP_SRC = '/backdrop.webp'
 
+// 탭/길게 누르기 시간 임계값 (Requirement 4). 이 상수가 유일한 임계값
+// 소스다 — 씬 코드에 ms 리터럴 인라인 금지. 판정은 decideTouchAction
+// (src/scene/touch.ts): 누른 시간 < LONG_PRESS_MS → 탭, 이상 → 길게 누르기.
+export const LONG_PRESS_MS = 250
+
 // 우주 무드 색상 토큰 — 어두운 배경 + 보라 성운 + 핑크/시안 광원.
 // (conventions.md Design Tokens에 등록됨. 인라인 중복 금지.)
 export const COLOR_SPACE_BG = '#0b0714'

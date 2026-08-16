@@ -1,6 +1,28 @@
 # Conventions
 
-## Prior work this phase (Phase 2)
+## Prior work this phase (Phase 3)
+
+<!-- phase 시작 시 리셋. Phase 1–2 산출물은 Shared Utilities 참조. -->
+
+- step 1 (터치 입력, Req 4): `LONG_PRESS_MS = 250`을 `src/theme.ts`에
+  (유일한 임계값 소스), 순수 판정 모듈 신규 `src/scene/touch.ts`
+  (`decideTouchAction`: 뗄 때 경과시간 < 임계값 → 'tap', 이상 →
+  'longpress-release'; `shouldSuppressClick`: 터치 유래 합성 click 억제 —
+  pointerType 'touch'면 억제, 'mouse'/'pen'이면 절대 억제 안 함, 없으면
+  `TOUCH_CLICK_SUPPRESS_MS`(constants.ts, 500ms) 시간창 폴백) + 경계
+  테스트 `touch.test.ts` 9개. `BubbleField.tsx` Bubble에 터치 핸들러:
+  touch pointerdown에서 LONG_PRESS_MS 타이머 → 도달 시 호버(정지+확대+
+  오브제, 기존 hovered 상태 재사용), pointerup에서 판정 — 탭이면 데스크톱
+  클릭과 공유하는 `startPop`(기존 handleClick 본문 추출), 길게 누르기
+  해제면 un-hover만 (팝 절대 없음). pointerOver는 touch 무시(탭 호버
+  번쩍임 방지), pointerOut/pointerCancel은 터치 취소(원복, 팝 없음).
+  합성 click은 모듈 상태 `lastTouchEndAt` + shouldSuppressClick으로 전
+  방울 공통 억제 (click이 뒤 방울에 떨어지는 경우 포함). 마우스는
+  pointerType 분기로 기존 경로 무회귀. Home 캔버스 레이어에
+  `touchAction: 'none'` (씬 레이어 한정 — 오버레이/링크 무관).
+  25/25 green, 빌드/5173 liveness 확인.
+
+## (지난 phase 기록 — Phase 2)
 
 <!-- phase 시작 시 리셋. Phase 1 산출물은 Shared Utilities 참조:
      registry, deriveWorkBubbles, routes, HomeFallback, theme 토큰,
@@ -92,7 +114,14 @@
 - `src/theme.ts` — 토큰/상수 모듈. 현재 `SITE_TITLE`, `HOME_TESTID`,
   `BACKDROP_SRC`, 우주 무드 색상(`COLOR_SPACE_BG` 어두운 배경,
   `COLOR_NEBULA_PURPLE`, `COLOR_ACCENT_PINK`, `COLOR_ACCENT_CYAN`,
-  `COLOR_TEXT`). `LONG_PRESS_MS`는 이후 스텝에서 추가한다.
+  `COLOR_TEXT`), `LONG_PRESS_MS`(250 — 탭/길게 누르기 임계값의 유일한
+  소스, 씬 코드에 ms 리터럴 인라인 금지).
+- `src/scene/touch.ts` — 터치 판정 순수 모듈 (타이머/이벤트 없음, 유닛
+  테스트 대상). `decideTouchAction(elapsedMs)`: 'tap' | 'longpress-release'
+  (임계값은 LONG_PRESS_MS 하나). `shouldSuppressClick(pointerType,
+  msSinceTouchEnd)`: 터치 유래 합성 click 억제 판정 — 'touch' 억제,
+  'mouse'/'pen' 절대 비억제, 미상이면 TOUCH_CLICK_SUPPRESS_MS 시간창.
+  터치 관련 판정 로직은 여기 두고 컴포넌트에는 배선만 남긴다.
 - `HOME_TESTID` (`src/theme.ts`) — 테스트 심(B3): 홈 화면 루트 요소는
   `data-testid={HOME_TESTID}`를 가져야 한다. 라우팅 테스트가 "홈 렌더/
   홈으로 리다이렉트"를 이 아이디로 판별한다.
@@ -125,8 +154,9 @@
   `POINT_LIGHT_PINK_POSITION`/`POINT_LIGHT_CYAN_POSITION`, 방울 개수/
   크기/배치/모션 파라미터, 림 셰이더 강도, 레이아웃 시드 + 시드 스트라이드
   소수 `SEED_STRIDE_INDEX`/`SEED_OFFSET_DECORATIVE`/
-  `SEED_STRIDE_RESPAWN_GEN`). 씬 매직 넘버는 전부 여기 — 씬 코드 인라인
-  금지. 색상은 여기 두지 않는다 (`src/theme.ts` 몫).
+  `SEED_STRIDE_RESPAWN_GEN`, 터치 click 억제 시간창
+  `TOUCH_CLICK_SUPPRESS_MS`). 씬 매직 넘버는 전부 여기 — 씬 코드 인라인
+  금지. 색상과 LONG_PRESS_MS는 여기 두지 않는다 (`src/theme.ts` 몫).
 - `src/scene/homeStyles.ts` — Home/HomeFallback 공유 스타일 조각.
   `backdropStyle`(풀뷰포트 우주 배경: 100dvh + BACKDROP_SRC cover/center
   + COLOR_SPACE_BG/COLOR_TEXT), `homeTitleStyle`(제목 h1 타이포 + 성운
@@ -145,8 +175,12 @@
   기준 구면 버스트, center/radius/onDone만 받아 재사용 가능). 클릭 터짐은
   구현 완료: Bubble이 idle→burst→gone 단계 + `onPop`/`onPopFinished`
   콜백, 루트 `BubbleField`는 `onWorkOpen?: (slug) => void` prop (Home이
-  주입 — 씬 안에서 라우터 훅 사용 금지). 모바일 길게 누르기/탭 스텝은
-  여기에 얹는다.
+  주입 — 씬 안에서 라우터 훅 사용 금지). 터치(Req 4)도 구현 완료:
+  Bubble의 touch pointerdown → LONG_PRESS_MS 타이머로 호버 전환,
+  pointerup에서 `decideTouchAction` — 탭은 `startPop`(마우스 클릭과 공유
+  경로), 길게 누르기 해제는 un-hover만. 합성 click은 `lastTouchEndAt`
+  모듈 상태 + `shouldSuppressClick`으로 억제. 판정 로직은 touch.ts,
+  이 파일에는 배선만.
 - `src/scene/HomeFallback.tsx` — 홈/폴백 화면 컴포넌트 (default export).
   배경 이미지 + `SITE_TITLE` h1 + 등록부 전 작품 텍스트 링크, 루트에
   `data-testid={HOME_TESTID}`. Phase 1에서는 `/`의 홈 화면이며, Phase 2
