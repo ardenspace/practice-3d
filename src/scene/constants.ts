@@ -53,6 +53,22 @@ export const OBJET_FADE_DAMP = 7 // 오브제 페이드 인/아웃 스무딩 λ
 export const OBJET_REVEAL_SCALE_FROM = 0.75 // 공개 시작 스케일 (페이드와 함께 1로)
 export const OBJET_VISIBLE_EPSILON = 0.01 // 이하 불투명도는 렌더 스킵
 
+// ── 터짐 (클릭 팝 — Requirements 5–6, 파티클/연출은 Delegated) ──
+// 파티클은 방울 표면에서 바깥으로 튀는 무지갯빛 물방울 조각 (Points 1드로).
+export const POP_PARTICLE_COUNT = 28 // 방울 하나가 터질 때 조각 수
+export const POP_PARTICLE_LIFETIME = 0.65 // s — 조각이 사라지기까지
+export const POP_PARTICLE_SPEED_MIN = 1.6 // 초기 속도 (방울 반지름 배수 /s)
+export const POP_PARTICLE_SPEED_MAX = 3.4
+export const POP_PARTICLE_GRAVITY = 2.4 // units/s² — 살짝 아래로 처짐
+export const POP_PARTICLE_DRAG = 2.2 // 속도 지수 감쇠 λ (공기 저항)
+export const POP_PARTICLE_SIZE_RATIO = 0.16 // 조각 크기 / 방울 반지름
+export const POP_PARTICLE_SHRINK = 0.55 // 수명 동안 크기 감소 비율 (0=유지)
+// 터짐 시작 → 내비게이션. 파티클 수명(650ms)보다 짧아 페이드 중에 전환 —
+// 터지는 순간은 보이되 랙처럼 느껴지지 않는 지점.
+export const POP_NAVIGATE_DELAY_MS = 420
+// 장식 방울 리스폰: 터짐 완료 후 이 지연 뒤 화면 아래에서 새로 떠오른다.
+export const POP_RESPAWN_DELAY_MS = 2600
+
 // ── 지오메트리 ──
 export const BUBBLE_WIDTH_SEGMENTS = 48
 export const BUBBLE_HEIGHT_SEGMENTS = 32

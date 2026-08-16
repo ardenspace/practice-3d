@@ -1,11 +1,14 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
+  BufferAttribute,
+  BufferGeometry,
   Color,
   Group,
   Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
+  PointsMaterial,
   ShaderMaterial,
   SphereGeometry,
   SRGBColorSpace,
@@ -46,6 +49,16 @@ import {
   OBJET_SIZE_RATIO,
   OBJET_VISIBLE_EPSILON,
   OBJET_Z_OFFSET_RATIO,
+  POP_NAVIGATE_DELAY_MS,
+  POP_PARTICLE_COUNT,
+  POP_PARTICLE_DRAG,
+  POP_PARTICLE_GRAVITY,
+  POP_PARTICLE_LIFETIME,
+  POP_PARTICLE_SHRINK,
+  POP_PARTICLE_SIZE_RATIO,
+  POP_PARTICLE_SPEED_MAX,
+  POP_PARTICLE_SPEED_MIN,
+  POP_RESPAWN_DELAY_MS,
   RESPAWN_MARGIN,
   SPIN_SPEED_MAX,
   SPIN_SPEED_MIN,
@@ -84,7 +97,16 @@ import {
 //   1↔0으로 지수 감쇠 — 급정지 대신 감속, 해제 시 멈춘 자리에서 재가속.
 // - 쉬머(uTime)는 실제 경과시간을 계속 받아 정지 중에도 색이 흐른다
 //   (죽은 정지가 아니라 살아있는 정지).
-// 클릭(터짐/내비게이션)과 모바일 길게 누르기는 다음 스텝.
+//
+// 클릭(터짐, Requirements 5–6): 클릭하면 방울 mesh가 즉시 사라지고 그
+// 자리에서 무지갯빛 조각 파티클(PopBurst)이 터진다. 터지는 동안 방울
+// 서브트리는 언마운트라 레이캐스트 대상이 아예 없다 — 더블 팝/터지는
+// 방울 호버 불가. 작품 방울은 터짐 시작 POP_NAVIGATE_DELAY_MS 뒤
+// onWorkOpen(slug)으로 내비게이션 (라우터 컨텍스트는 DOM 쪽 Home이 들고
+// 있고 콜백으로 주입 — R3F 리컨실러 안에서 useNavigate를 쓰지 않는다).
+// 장식 방울은 터지기만 하고, 파티클 소멸 후 POP_RESPAWN_DELAY_MS 뒤 새
+// 모션 파라미터로 화면 아래에서 리스폰한다 (필드가 비어가지 않게).
+// 모바일 길게 누르기/탭은 다음 스텝.
 
 // 오브제 평면 공유 지오메트리 (단위 정사각형, 크기는 mesh scale).
 const objetGeometry = new PlaneGeometry(1, 1)
@@ -194,6 +216,112 @@ function euclideanMod(value: number, modulus: number): number {
   return ((value % modulus) + modulus) % modulus
 }
 
+// ── 터짐 파티클 (PopBurst) ──
+// 방울 하나가 터질 때의 일회성 버스트. Points 하나(1 드로우콜)로 그리고,
+// 위치/속도 버퍼는 마운트 시 1회 할당 — 프레임 루프는 그 버퍼를 제자리
+// 갱신만 한다 (프레임당 할당 없음). 조각은 방울 표면에서 바깥 방향으로
+// 튀고, 약한 중력 + 공기 저항으로 처지며 수명 동안 페이드/축소.
+// 색은 테마 악센트(핑크/시안/보라) 순환.
+const popPalette = [rimPink, rimCyan, rimPurple]
+
+interface PopBurstProps {
+  center: readonly [number, number, number]
+  radius: number
+  /** 파티클 수명이 끝나면 정확히 1회 호출. */
+  onDone: () => void
+}
+
+function PopBurst({ center, radius, onDone }: PopBurstProps) {
+  // onDone은 ref로 — useFrame 클로저가 항상 최신 콜백을 부른다.
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
+  const ageRef = useRef(0)
+  const doneRef = useRef(false)
+
+  const { geometry, material, positionAttribute, velocities } = useMemo(() => {
+    const positions = new Float32Array(POP_PARTICLE_COUNT * 3)
+    const colors = new Float32Array(POP_PARTICLE_COUNT * 3)
+    const velocities = new Float32Array(POP_PARTICLE_COUNT * 3)
+    for (let i = 0; i < POP_PARTICLE_COUNT; i += 1) {
+      // 균일 구면 방향 — 방울 표면에서 시작해 그 방향으로 튄다.
+      const y = Math.random() * 2 - 1
+      const phi = Math.random() * Math.PI * 2
+      const s = Math.sqrt(Math.max(0, 1 - y * y))
+      const dx = s * Math.cos(phi)
+      const dz = s * Math.sin(phi)
+      positions[i * 3] = dx * radius
+      positions[i * 3 + 1] = y * radius
+      positions[i * 3 + 2] = dz * radius
+      const speed =
+        lerp(POP_PARTICLE_SPEED_MIN, POP_PARTICLE_SPEED_MAX, Math.random()) *
+        radius
+      velocities[i * 3] = dx * speed
+      velocities[i * 3 + 1] = y * speed
+      velocities[i * 3 + 2] = dz * speed
+      const color = popPalette[i % popPalette.length]
+      colors[i * 3] = color.r
+      colors[i * 3 + 1] = color.g
+      colors[i * 3 + 2] = color.b
+    }
+    const geometry = new BufferGeometry()
+    const positionAttribute = new BufferAttribute(positions, 3)
+    geometry.setAttribute('position', positionAttribute)
+    geometry.setAttribute('color', new BufferAttribute(colors, 3))
+    const material = new PointsMaterial({
+      size: POP_PARTICLE_SIZE_RATIO * radius,
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      sizeAttenuation: true,
+      toneMapped: false,
+    })
+    return { geometry, material, positionAttribute, velocities }
+  }, [radius])
+
+  useEffect(
+    () => () => {
+      geometry.dispose()
+      material.dispose()
+    },
+    [geometry, material],
+  )
+
+  useFrame((_, delta) => {
+    if (doneRef.current) return
+    ageRef.current += delta
+    const life = ageRef.current / POP_PARTICLE_LIFETIME
+    if (life >= 1) {
+      doneRef.current = true
+      onDoneRef.current()
+      return
+    }
+    const positions = positionAttribute.array as Float32Array
+    const drag = Math.exp(-POP_PARTICLE_DRAG * delta)
+    for (let i = 0; i < velocities.length; i += 3) {
+      velocities[i] *= drag
+      velocities[i + 1] =
+        velocities[i + 1] * drag - POP_PARTICLE_GRAVITY * delta
+      velocities[i + 2] *= drag
+      positions[i] += velocities[i] * delta
+      positions[i + 1] += velocities[i + 1] * delta
+      positions[i + 2] += velocities[i + 2] * delta
+    }
+    positionAttribute.needsUpdate = true
+    material.opacity = 1 - life
+    material.size =
+      POP_PARTICLE_SIZE_RATIO * radius * (1 - POP_PARTICLE_SHRINK * life)
+  })
+
+  return (
+    <points
+      geometry={geometry}
+      material={material}
+      position={center}
+      raycast={() => null}
+    />
+  )
+}
+
 // 방울 하나의 모션 파라미터 — 마운트 시 한 번 뽑고 이후 불변.
 // (호버 스텝이 "정지/확대" 상태를 얹을 때도 이 베이스는 그대로 둔다.)
 interface BubbleMotion {
@@ -228,11 +356,19 @@ function makeMotion(rand: () => number, range: MotionRange): BubbleMotion {
   }
 }
 
+// 터짐 단계: idle(떠다님/호버 가능) → burst(파티클만, 상호작용 없음) →
+// gone(아무것도 렌더 안 함 — 리스폰은 부모 몫).
+type PopPhase = 'idle' | 'burst' | 'gone'
+
 interface BubbleProps {
   name?: string
   radius: number
   motion: BubbleMotion
   rimAlpha: number
+  /** 클릭으로 터짐이 시작되는 순간 호출 (작품 방울: 내비게이션 예약). */
+  onPop?: () => void
+  /** 파티클까지 끝나 방울이 완전히 사라진 뒤 호출 (장식 방울: 리스폰 예약). */
+  onPopFinished?: () => void
   /**
    * 오브제 등 방울과 함께 움직일 자식 (group 좌표계). 호버 상태를 받아
    * 렌더하는 함수 — 작품 방울의 오브제 공개가 이 인자로 구동된다.
@@ -240,10 +376,22 @@ interface BubbleProps {
   children?: (hovered: boolean) => ReactNode
 }
 
-function Bubble({ name, radius, motion, rimAlpha, children }: BubbleProps) {
+function Bubble({
+  name,
+  radius,
+  motion,
+  rimAlpha,
+  onPop,
+  onPopFinished,
+  children,
+}: BubbleProps) {
   const groupRef = useRef<Group>(null)
   const meshRef = useRef<Mesh>(null)
   const [hovered, setHovered] = useState(false)
+  const [popPhase, setPopPhase] = useState<PopPhase>('idle')
+  // 터진 순간의 위치/크기 — 파티클이 방울이 있던 바로 그 자리에서 터진다.
+  const popCenterRef = useRef<readonly [number, number, number]>([0, 0, 0])
+  const popRadiusRef = useRef(radius)
   // 무텔레포트 정지의 상태: 로컬시간(위치의 유일한 시간축) + 진행 속도 +
   // 현재 스케일. 렌더가 아니라 프레임 루프가 굴리는 값이라 ref.
   const localTimeRef = useRef(0)
@@ -333,6 +481,43 @@ function Bubble({ name, radius, motion, rimAlpha, children }: BubbleProps) {
     setHovered(true)
   }
 
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    // 앞의 방울만 터진다 — 뒤에 겹친 방울까지 연쇄 팝 금지.
+    event.stopPropagation()
+    if (popPhase !== 'idle') return
+    const group = groupRef.current
+    if (group) {
+      popCenterRef.current = [
+        group.position.x,
+        group.position.y,
+        group.position.z,
+      ]
+    }
+    // 호버 확대 중이면 커진 크기 그대로 터진다.
+    popRadiusRef.current = radius * scaleRef.current
+    // mesh가 언마운트되면 pointerOut이 안 오므로 여기서 호버/커서 해제.
+    setHovered(false)
+    setPopPhase('burst')
+    onPop?.()
+  }
+
+  if (popPhase === 'gone') return null
+
+  if (popPhase === 'burst') {
+    // 방울 서브트리 전체를 파티클로 교체 — 레이캐스트 대상이 없어
+    // 터지는 동안 호버/재클릭이 원천 차단된다 (더블 팝 불가).
+    return (
+      <PopBurst
+        center={popCenterRef.current}
+        radius={popRadiusRef.current}
+        onDone={() => {
+          setPopPhase('gone')
+          onPopFinished?.()
+        }}
+      />
+    )
+  }
+
   return (
     <group ref={groupRef} name={name}>
       <mesh
@@ -342,6 +527,7 @@ function Bubble({ name, radius, motion, rimAlpha, children }: BubbleProps) {
         scale={radius}
         onPointerOver={handlePointerOver}
         onPointerOut={() => setHovered(false)}
+        onClick={handleClick}
       />
       {children?.(hovered)}
     </group>
@@ -451,12 +637,19 @@ interface WorkBubbleViewProps {
   bubble: WorkBubble
   index: number
   total: number
+  /** 터짐 연출 후 작품 페이지를 열 콜백 (slug 전달) — Home이 주입. */
+  onWorkOpen?: (slug: string) => void
 }
 
 // 작품 방울 — entry(slug/title/object.src)를 여기서 들고 간다. 호버 시
-// 오브제 공개는 Bubble의 함수 자식으로 구동. 클릭(터짐+내비게이션)은
-// 다음 스텝에 이 컴포넌트에 얹는다.
-function WorkBubbleView({ bubble, index, total }: WorkBubbleViewProps) {
+// 오브제 공개는 Bubble의 함수 자식으로 구동. 클릭(Requirement 5): 터짐이
+// 시작되면 POP_NAVIGATE_DELAY_MS 뒤 onWorkOpen(slug) — 사용자가 터지는
+// 순간을 본 다음 페이지가 전환된다. slug는 항상 entry에서 (하드코딩 금지).
+function WorkBubbleView({ bubble, index, total, onWorkOpen }: WorkBubbleViewProps) {
+  const navigateTimerRef = useRef<number | undefined>(undefined)
+  // 내비게이션 전에 다른 이유(WebGL 상실 폴백 등)로 언마운트되면 예약 취소.
+  useEffect(() => () => window.clearTimeout(navigateTimerRef.current), [])
+
   const motion = useMemo(() => {
     const rand = mulberry32(BUBBLE_LAYOUT_SEED + index * 7919)
     // 작품 방울은 x 슬롯에 고르게 분배 (작품 1개면 중앙).
@@ -469,12 +662,22 @@ function WorkBubbleView({ bubble, index, total }: WorkBubbleViewProps) {
     })
   }, [index, total])
 
+  const handlePop = () => {
+    if (!onWorkOpen) return
+    const slug = bubble.entry.slug
+    navigateTimerRef.current = window.setTimeout(
+      () => onWorkOpen(slug),
+      POP_NAVIGATE_DELAY_MS,
+    )
+  }
+
   return (
     <Bubble
       name={bubble.entry.slug}
       radius={WORK_BUBBLE_RADIUS}
       motion={motion}
       rimAlpha={WORK_RIM_ALPHA}
+      onPop={handlePop}
     >
       {(hovered) => (
         <BubbleObjet
@@ -487,26 +690,59 @@ function WorkBubbleView({ bubble, index, total }: WorkBubbleViewProps) {
   )
 }
 
+// 장식 방울 — 클릭하면 터지기만 한다 (Requirement 6, 내비게이션 없음).
+// 리스폰(위임): 파티클 소멸 후 POP_RESPAWN_DELAY_MS 뒤 같은 슬롯이 새
+// 모션 파라미터(gen을 시드에 섞음)로 화면 아래 경계에서 다시 떠오른다 —
+// 터뜨려도 필드가 비어가지 않고, 같은 자리에 유령처럼 재등장하지도 않는다.
 function DecorativeBubble({ index }: { index: number }) {
+  const [gen, setGen] = useState(0)
+  const respawnTimerRef = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(respawnTimerRef.current), [])
+
   const { motion, radius } = useMemo(() => {
-    const rand = mulberry32(BUBBLE_LAYOUT_SEED + 104729 + index * 7919)
-    return {
-      radius: lerp(DECORATIVE_RADIUS_MIN, DECORATIVE_RADIUS_MAX, rand()),
-      motion: makeMotion(rand, {
-        xFrac: (rand() * 2 - 1) * DECORATIVE_X_USABLE,
-        zMin: DECORATIVE_Z_MIN,
-        zMax: DECORATIVE_Z_MAX,
-        speedScale: 1,
-      }),
-    }
-  }, [index])
+    const rand = mulberry32(
+      BUBBLE_LAYOUT_SEED + 104729 + index * 7919 + gen * 15485863,
+    )
+    const radius = lerp(DECORATIVE_RADIUS_MIN, DECORATIVE_RADIUS_MAX, rand())
+    const motion = makeMotion(rand, {
+      xFrac: (rand() * 2 - 1) * DECORATIVE_X_USABLE,
+      zMin: DECORATIVE_Z_MIN,
+      zMax: DECORATIVE_Z_MAX,
+      speedScale: 1,
+    })
+    // 리스폰 세대는 랩 구간의 시작(화면 아래 경계)에서 떠오른다.
+    if (gen > 0) motion.startFrac = 0
+    return { motion, radius }
+  }, [index, gen])
+
+  const handlePopFinished = () => {
+    respawnTimerRef.current = window.setTimeout(
+      () => setGen((g) => g + 1),
+      POP_RESPAWN_DELAY_MS,
+    )
+  }
 
   return (
-    <Bubble radius={radius} motion={motion} rimAlpha={DECORATIVE_RIM_ALPHA} />
+    <Bubble
+      key={gen} // 리스폰 = 새 Bubble (로컬시간/속도/스케일 리셋)
+      radius={radius}
+      motion={motion}
+      rimAlpha={DECORATIVE_RIM_ALPHA}
+      onPopFinished={handlePopFinished}
+    />
   )
 }
 
-export default function BubbleField() {
+interface BubbleFieldProps {
+  /**
+   * 작품 방울이 터진 뒤 해당 작품 페이지를 열 콜백. 라우터 컨텍스트
+   * (useNavigate)는 DOM 쪽 Home에 있으므로 여기로 주입받는다 — R3F
+   * 리컨실러 내부에서 라우터 훅을 직접 쓰지 않는다.
+   */
+  onWorkOpen?: (slug: string) => void
+}
+
+export default function BubbleField({ onWorkOpen }: BubbleFieldProps) {
   // B1 씬 보장의 소비 지점: 등록부가 아니라 파생 목록에서 방울을 만든다.
   const workBubbles = useMemo(() => deriveWorkBubbles(works), [])
 
@@ -518,6 +754,7 @@ export default function BubbleField() {
           bubble={bubble}
           index={index}
           total={workBubbles.length}
+          onWorkOpen={onWorkOpen}
         />
       ))}
       {Array.from({ length: DECORATIVE_BUBBLE_COUNT }, (_, index) => (

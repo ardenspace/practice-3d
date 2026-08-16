@@ -44,6 +44,20 @@
   배럴 임포트 회피 — jsdom 테스트 경로 경량 유지). 새 상수 8개는
   `constants.ts` "호버" 섹션. 클릭/모바일 길게 누르기는 다음 스텝.
   16/16 green.
+- step 5 (데스크톱 클릭 터짐): `src/scene/BubbleField.tsx` — 클릭 시 방울
+  서브트리를 `PopBurst`(Points 1드로, 표면에서 바깥으로 튀는 무지갯빛
+  조각 28개, 중력+드래그+페이드/축소, 버퍼 마운트 1회 할당)로 교체 →
+  터지는 동안 레이캐스트 대상 자체가 없어 더블 팝/호버 불가. Bubble은
+  idle→burst→gone 3단계, 클릭 시 stopPropagation(앞 방울만) + 호버/커서
+  해제, 터진 순간의 위치·호버 확대 크기 그대로 터짐. 작품 방울(Req 5):
+  터짐 시작 `POP_NAVIGATE_DELAY_MS`(420ms, 파티클 수명 650ms보다 짧아
+  페이드 중 전환) 뒤 `onWorkOpen(entry.slug)` — 라우터 훅은 DOM 쪽
+  Home(`useNavigate`+`workPath`)에만 두고 씬에는 콜백 주입 (R3F 리컨실러
+  안에서 라우터 컨텍스트 금지). 언마운트 시 예약 취소. 장식 방울(Req 6):
+  터지기만, 소멸 후 `POP_RESPAWN_DELAY_MS`(2.6s) 뒤 gen 시드로 새 모션
+  파라미터 + key 리마운트로 화면 아래에서 리스폰 (필드 안 비고, 같은
+  자리 유령 재등장 없음). 새 상수 10개는 `constants.ts` "터짐" 섹션.
+  16/16 green, 빌드/5173 liveness 확인.
 
 ## Baseline (applies unless overridden)
 
@@ -113,7 +127,12 @@
   `children?: (hovered: boolean) => ReactNode` 함수로 받아 오브제
   (`BubbleObjet`)가 호버를 구동받는다. 파일 내 공용: `dampTo`(지수 감쇠
   스무딩), `useHoverCursor`(카운터 기반 pointer 커서), `useObjetTexture`
-  (비동기 텍스처, 실패 조용). 클릭(터짐)/모바일 스텝은 여기에 얹는다.
+  (비동기 텍스처, 실패 조용), `PopBurst`(일회성 파티클 버스트 — 원점
+  기준 구면 버스트, center/radius/onDone만 받아 재사용 가능). 클릭 터짐은
+  구현 완료: Bubble이 idle→burst→gone 단계 + `onPop`/`onPopFinished`
+  콜백, 루트 `BubbleField`는 `onWorkOpen?: (slug) => void` prop (Home이
+  주입 — 씬 안에서 라우터 훅 사용 금지). 모바일 길게 누르기/탭 스텝은
+  여기에 얹는다.
 - `src/scene/HomeFallback.tsx` — 홈/폴백 화면 컴포넌트 (default export).
   배경 이미지 + `SITE_TITLE` h1 + 등록부 전 작품 텍스트 링크, 루트에
   `data-testid={HOME_TESTID}`. Phase 1에서는 `/`의 홈 화면이며, Phase 2

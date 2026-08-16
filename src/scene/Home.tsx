@@ -1,6 +1,8 @@
 import { Canvas } from '@react-three/fiber'
 import { useCallback, useState, type CSSProperties } from 'react'
+import { useNavigate } from 'react-router'
 import type { WebGLRenderer } from 'three'
+import { workPath } from '../works/registry.ts'
 import {
   BACKDROP_SRC,
   COLOR_ACCENT_CYAN,
@@ -58,6 +60,15 @@ const titleStyle: CSSProperties = {
 
 export default function Home() {
   const [webglOk, setWebglOk] = useState(isWebGLAvailable)
+  const navigate = useNavigate()
+
+  // 작품 방울 터짐 → 페이지 이동 (Requirement 5). 라우터 훅은 DOM 쪽인
+  // 여기서만 쓰고, R3F 씬(BubbleField)에는 콜백으로 주입한다 — Canvas
+  // 자식은 별도 리컨실러라 라우터 컨텍스트 의존을 씬 안에 두지 않는다.
+  const handleWorkOpen = useCallback(
+    (slug: string) => navigate(workPath(slug)),
+    [navigate],
+  )
 
   // 실행 중 컨텍스트 상실 → 폴백 전환. Canvas onCreated에서 실제 렌더러의
   // 캔버스 요소에 리스너를 단다 (Canvas가 언마운트되면 요소째 사라지므로
@@ -92,7 +103,7 @@ export default function Home() {
             color={COLOR_ACCENT_CYAN}
             intensity={40}
           />
-          <BubbleField />
+          <BubbleField onWorkOpen={handleWorkOpen} />
         </Canvas>
       </div>
       <h1 style={titleStyle}>{SITE_TITLE}</h1>
