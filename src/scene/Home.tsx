@@ -6,7 +6,11 @@ import { workPath } from '../works/registry.ts'
 import {
   COLOR_ACCENT_CYAN,
   COLOR_ACCENT_PINK,
+  COLOR_NEBULA_PURPLE,
+  HINT_ENTER_ANIMATION,
   HOME_TESTID,
+  SCENE_HINT,
+  SITE_TAGLINE,
   SITE_TITLE,
 } from '../theme.ts'
 import BubbleField from './BubbleField.tsx'
@@ -19,7 +23,12 @@ import {
   POINT_LIGHT_PINK_POSITION,
 } from './constants.ts'
 import HomeFallback from './HomeFallback.tsx'
-import { backdropStyle, homeTitleStyle } from './homeStyles.ts'
+import {
+  backdropStyle,
+  homeHeaderStyle,
+  homeTaglineStyle,
+  homeTitleStyle,
+} from './homeStyles.ts'
 
 // 홈 씬 호스트 (B4 분기의 단일 지점).
 // - 마운트 전 isWebGLAvailable()로 WebGL을 프로브한다. 불가 →
@@ -47,14 +56,33 @@ const canvasLayerStyle: CSSProperties = {
   touchAction: 'none',
 }
 
-const titleStyle: CSSProperties = {
-  ...homeTitleStyle,
+// 제목 + 태그라인 오버레이 (씬 위, 포인터 통과).
+const headerStyle: CSSProperties = {
+  ...homeHeaderStyle,
   position: 'absolute',
   top: '2.5rem',
   left: 0,
   right: 0,
+  pointerEvents: 'none',
+}
+
+// 인터랙션 힌트 — 하단에서 딜레이 뒤 은은하게 떠오른다 (씬 전용 카피,
+// 폴백은 텍스트 링크라 이 힌트가 성립하지 않음).
+const hintStyle: CSSProperties = {
+  position: 'absolute',
+  bottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))',
+  left: 0,
+  right: 0,
+  margin: 0,
   textAlign: 'center',
   pointerEvents: 'none',
+  fontSize: '0.8rem',
+  fontWeight: 300,
+  letterSpacing: '0.28em',
+  paddingLeft: '0.28em',
+  opacity: 0.6,
+  textShadow: `0 0 12px ${COLOR_NEBULA_PURPLE}`,
+  animation: HINT_ENTER_ANIMATION,
 }
 
 export default function Home() {
@@ -105,7 +133,11 @@ export default function Home() {
           <BubbleField onWorkOpen={handleWorkOpen} />
         </Canvas>
       </div>
-      <h1 style={titleStyle}>{SITE_TITLE}</h1>
+      <header style={headerStyle}>
+        <h1 style={homeTitleStyle}>{SITE_TITLE}</h1>
+        <p style={homeTaglineStyle}>{SITE_TAGLINE}</p>
+      </header>
+      <p style={hintStyle}>{SCENE_HINT}</p>
     </main>
   )
 }

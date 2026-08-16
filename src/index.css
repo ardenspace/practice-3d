@@ -1,4 +1,4 @@
-/* 구조 리셋만 — 색상·간격 토큰은 src/theme.ts 한 곳에 둔다. */
+/* 구조 리셋 + 전환 keyframes만 — 색상·간격·카피 토큰은 src/theme.ts 한 곳에 둔다. */
 *,
 *::before,
 *::after {
@@ -13,4 +13,33 @@ body {
     'Apple SD Gothic Neo',
     'Noto Sans KR',
     sans-serif;
+}
+
+/* 페이지 전환 연출 (Delegated). 인라인 style은 src/theme.ts의
+   PAGE_ENTER_ANIMATION / HINT_ENTER_ANIMATION 상수로만 참조한다.
+   prefers-reduced-motion이면 즉시 표시 (지속시간 0). */
+:root {
+  --page-enter-ms: 560ms;
+  --hint-enter-delay: 1.6s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --page-enter-ms: 0ms;
+    --hint-enter-delay: 0s;
+  }
+}
+
+/* 도착 페이드: opacity 0 → 요소 자신의 값. */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 인터랙션 힌트: 방울들이 자리 잡은 뒤(딜레이) 은은하게 떠오른다. */
+@keyframes hint-enter {
+  from {
+    opacity: 0;
+  }
 }

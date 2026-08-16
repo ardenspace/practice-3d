@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router'
+import { BACK_TO_HOME_LABEL } from '../../theme.ts'
 
 // 이 작품의 메타 텍스트 단일 소스 — 등록부 항목과 페이지가 함께 임포트한다.
 export const VENDING_MACHINE_TITLE = '자판기'
@@ -32,7 +33,7 @@ export default function VendingMachinePage() {
       <h1 style={{ margin: 0, fontSize: '2rem' }}>{VENDING_MACHINE_TITLE}</h1>
       <p style={{ margin: 0, opacity: 0.8 }}>{VENDING_MACHINE_BLURB}</p>
       <Link to="/" style={{ color: '#9fd8ff', marginTop: '1rem' }}>
-        ← 방울들에게로
+        {BACK_TO_HOME_LABEL}
       </Link>
     </main>
   )

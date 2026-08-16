@@ -2,6 +2,7 @@ import { Navigate } from 'react-router'
 import type { RouteObject } from 'react-router'
 import Home from './scene/Home.tsx'
 import { workPath, works } from './works/registry.ts'
+import WorkErrorBoundary from './works/WorkErrorBoundary.tsx'
 
 // B3 — 라우팅 표면의 단일 진실.
 // `/` = 홈 씬 호스트(Home: WebGL 씬 vs HomeFallback 폴백을 결정, B4),
@@ -11,9 +12,16 @@ import { workPath, works } from './works/registry.ts'
 // App/main과 테스트가 같은 이 배열로 각자 라우터를 만든다.
 export const routes: RouteObject[] = [
   { path: '/', element: <Home /> },
+  // 작품 라우트만 WorkErrorBoundary로 감싼다 (크래시 → 실패 문구 + 홈
+  // 링크의 최소 화면; 정상 경로는 도착 페이드 프레임). 홈 라우트는 감싸지
+  // 않는다 — 씬 오류가 여기로 흡수되면 B4 폴백 경로가 가려진다.
   ...works.map((w) => ({
     path: workPath(w.slug),
-    element: <w.Page />,
+    element: (
+      <WorkErrorBoundary>
+        <w.Page />
+      </WorkErrorBoundary>
+    ),
   })),
   { path: '*', element: <Navigate to="/" replace /> },
 ]

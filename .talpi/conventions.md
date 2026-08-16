@@ -21,6 +21,24 @@
   pointerType 분기로 기존 경로 무회귀. Home 캔버스 레이어에
   `touchAction: 'none'` (씬 레이어 한정 — 오버레이/링크 무관).
   25/25 green, 빌드/5173 liveness 확인.
+- step 2 (마감 3종): (a) 홈 카피/타이포 — `src/theme.ts`에 카피 상수
+  `SITE_TAGLINE`('고요한 우주를 떠도는 방울들', 홈 씬+폴백 공유)과
+  `SCENE_HINT`('방울을 톡, 터뜨려 보세요', WebGL 씬 전용 — 폴백은 방울이
+  없어 미표시). homeStyles에 `homeTaglineStyle`/`homeHeaderStyle` 추가,
+  제목은 이중 성운 글로우 + letter-spacing 광학 보정(paddingLeft). 힌트는
+  하단 중앙, 딜레이 페이드 인. h1 텍스트는 여전히 SITE_TITLE 그대로
+  (App.test/Home.test 핀 유지). (b) 페이지 전환 — CSS-only: keyframes
+  `page-enter`/`hint-enter` + `--page-enter-ms` 변수는 index.css
+  (reduced-motion이면 0), 인라인 참조는 theme의 `PAGE_ENTER_ANIMATION`/
+  `HINT_ENTER_ANIMATION` 상수로만. 홈 도착 페이드는 backdropStyle에,
+  작품 페이지 도착 페이드는 WorkErrorBoundary의 정상 경로 프레임 div에.
+  (c) 에러 바운더리 — 신규 `src/works/WorkErrorBoundary.tsx`(아래 Shared
+  Utilities), routes.tsx에서 작품 라우트 element만 감싼다 (홈/씬 라우트는
+  비포장 — B4 폴백 경로 불가침). 실패 문구 `WORK_ERROR_MESSAGE`
+  ('이 방울은 잠시 쉬고 있어요.')와 홈 링크 라벨 `BACK_TO_HOME_LABEL`
+  ('← 방울들에게로', 자판기 페이지와 공유)은 theme.ts 단일 소스.
+  테스트 2개 추가(픽스처 라우트 크래시 → 문구+홈 링크, 정상 경로 투명).
+  27/27 green, 빌드/5173 liveness 확인.
 
 ## (지난 phase 기록 — Phase 2)
 
@@ -115,7 +133,11 @@
   `BACKDROP_SRC`, 우주 무드 색상(`COLOR_SPACE_BG` 어두운 배경,
   `COLOR_NEBULA_PURPLE`, `COLOR_ACCENT_PINK`, `COLOR_ACCENT_CYAN`,
   `COLOR_TEXT`), `LONG_PRESS_MS`(250 — 탭/길게 누르기 임계값의 유일한
-  소스, 씬 코드에 ms 리터럴 인라인 금지).
+  소스, 씬 코드에 ms 리터럴 인라인 금지), 홈 카피(`SITE_TAGLINE`,
+  `SCENE_HINT`), 사용자 노출 실패 문구 `WORK_ERROR_MESSAGE`(한 톤 한 곳 —
+  실패 문구는 여기만), 홈 링크 라벨 `BACK_TO_HOME_LABEL`, 전환 애니메이션
+  축약값 `PAGE_ENTER_ANIMATION`/`HINT_ENTER_ANIMATION`(keyframes와 CSS
+  변수 정의는 index.css, 인라인 style은 이 상수로만 참조).
 - `src/scene/touch.ts` — 터치 판정 순수 모듈 (타이머/이벤트 없음, 유닛
   테스트 대상). `decideTouchAction(elapsedMs)`: 'tap' | 'longpress-release'
   (임계값은 LONG_PRESS_MS 하나). `shouldSuppressClick(pointerType,
@@ -159,9 +181,19 @@
   금지. 색상과 LONG_PRESS_MS는 여기 두지 않는다 (`src/theme.ts` 몫).
 - `src/scene/homeStyles.ts` — Home/HomeFallback 공유 스타일 조각.
   `backdropStyle`(풀뷰포트 우주 배경: 100dvh + BACKDROP_SRC cover/center
-  + COLOR_SPACE_BG/COLOR_TEXT), `homeTitleStyle`(제목 h1 타이포 + 성운
-  글로우). 두 컴포넌트는 spread 후 레이아웃 차이만 덧붙인다 — 이 스타일을
-  다시 인라인 복제하지 말 것.
+  + COLOR_SPACE_BG/COLOR_TEXT + 홈 도착 page-enter 페이드),
+  `homeTitleStyle`(제목 h1 타이포 + 이중 성운 글로우 + letter-spacing
+  광학 보정), `homeTaglineStyle`(SITE_TAGLINE 한 줄), `homeHeaderStyle`
+  (제목+태그라인 세로 묶음). 두 컴포넌트는 spread 후 레이아웃 차이만
+  덧붙인다 — 이 스타일을 다시 인라인 복제하지 말 것.
+- `src/works/WorkErrorBoundary.tsx` — 작품 페이지 전용 에러 바운더리 +
+  도착 연출 프레임 (default export, 클래스 컴포넌트). routes.tsx가
+  `/works/<slug>` 라우트의 element만 이걸로 감싼다 — 홈/씬 라우트는 절대
+  감싸지 않는다 (씬 오류는 B4 폴백 몫, 여기로 흡수 금지). 정상 경로:
+  자식을 `PAGE_ENTER_ANIMATION` 페이드 div로 감쌈 (작품 페이지가 전환
+  연출을 개별 구현할 필요 없음). 크래시: `WORK_ERROR_MESSAGE` +
+  `BACK_TO_HOME_LABEL` 홈 링크의 최소 화면. 라우트 이탈 시 언마운트로
+  crashed 상태 자동 리셋.
 - `src/scene/BubbleField.tsx` — 방울 필드 (default export, Canvas 자식
   전용 — DOM 아님). 작품 방울(`WorkBubbleView`, entry 보유) + 장식 방울
   (`DecorativeBubble`) + 공용 `Bubble`(모션 useFrame + 프레넬 림

@@ -4,10 +4,16 @@ import {
   COLOR_ACCENT_CYAN,
   COLOR_NEBULA_PURPLE,
   HOME_TESTID,
+  SITE_TAGLINE,
   SITE_TITLE,
 } from '../theme.ts'
 import { workPath, works } from '../works/registry.ts'
-import { backdropStyle, homeTitleStyle } from './homeStyles.ts'
+import {
+  backdropStyle,
+  homeHeaderStyle,
+  homeTaglineStyle,
+  homeTitleStyle,
+} from './homeStyles.ts'
 
 // 홈 화면 — Phase 1의 임시 홈이자 B4 씬 폴백 화면.
 // Phase 2에서 홈 중앙은 WebGL 방울 씬이 차지하고, WebGL 컨텍스트 생성
@@ -47,7 +53,10 @@ const linkStyle: CSSProperties = {
 export default function HomeFallback() {
   return (
     <main data-testid={HOME_TESTID} style={rootStyle}>
-      <h1 style={homeTitleStyle}>{SITE_TITLE}</h1>
+      <header style={homeHeaderStyle}>
+        <h1 style={homeTitleStyle}>{SITE_TITLE}</h1>
+        <p style={homeTaglineStyle}>{SITE_TAGLINE}</p>
+      </header>
       <nav aria-label="works">
         <ul style={listStyle}>
           {works.map((w) => (
