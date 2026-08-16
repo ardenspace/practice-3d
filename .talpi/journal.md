@@ -22,3 +22,4 @@
 - [2026-08-16] phase 4 reported
 - [2026-08-16] run review (through 6b2d893): 4 findings (0 fixed, 4 noted)
 - [2026-08-16] final report sent, awaiting acceptance
+- [2026-08-16] run done
