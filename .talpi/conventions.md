@@ -12,6 +12,14 @@
   `src/scene/Home.tsx`로 교체 — stub은 B3(HOME_TESTID)와 스캐폴드 테스트
   (SITE_TITLE h1)만 만족하고 B4 의무는 미이행. 다음 스텝이 Home에
   WebGL 감지 + 씬/HomeFallback 분기를 구현하면 green이 된다.
+- step 2 (Home 실구현): `src/scene/Home.tsx` — 마운트 전
+  `isWebGLAvailable()`(신규 `src/scene/webgl.ts`) 프로브로 분기.
+  WebGL 불가 → `<HomeFallback />` (B4 green, jsdom은 항상 이 경로 —
+  R3F Canvas는 테스트에서 절대 마운트 안 됨). 가능 → 씬 셸: backdrop
+  CSS 배경 + 투명 R3F Canvas (앰비언트 + 핑크/시안 pointLight만, 방울
+  필드는 다음 스텝) + 제목 h1 오버레이. Canvas onCreated에서
+  `webglcontextlost` 리스너 등록 → 상태 전환으로 폴백 렌더 (수동 검수
+  범위). 16/16 green.
 
 ## Baseline (applies unless overridden)
 
@@ -59,9 +67,15 @@
   등록부 항목 추가만으로 라우트가 늘어난다 (B1). 알 수 없는 경로는
   catch-all `<Navigate to="/" replace>`.
 - `src/scene/Home.tsx` — 홈 씬 호스트 (default export). `/` 라우트의
-  element. WebGL 씬 vs HomeFallback 폴백(B4)을 결정하는 자리 — 현재는
-  stub(HOME_TESTID 루트 + SITE_TITLE h1만). WebGL 감지/분기는 다음
-  스텝에서 구현. 홈 루트 testid 의무(B3)는 이 컴포넌트가 진다.
+  element. 마운트 전 `isWebGLAvailable()` 프로브로 WebGL 씬(backdrop
+  CSS 배경 + 투명 R3F Canvas + 제목 오버레이) vs `<HomeFallback />`
+  (B4)을 분기하고, `webglcontextlost` 시 폴백으로 전환한다. 홈 루트
+  testid 의무(B3)는 양쪽 경로 모두 이 컴포넌트 계층이 진다. 방울 필드/
+  상호작용은 Canvas 자식으로 추가한다 (다음 스텝들).
+- `src/scene/webgl.ts` — `isWebGLAvailable(): boolean`. 프로브 캔버스로
+  webgl2 → webgl 순서 시도, null/예외 → false. R3F Canvas 마운트 *전*
+  게이트로 사용 — jsdom(WebGL 없음)에서 three.js가 컨텍스트를 잡으려다
+  죽는 일을 막는다. WebGL 필요 컴포넌트는 이 프로브를 재사용할 것.
 - `src/scene/HomeFallback.tsx` — 홈/폴백 화면 컴포넌트 (default export).
   배경 이미지 + `SITE_TITLE` h1 + 등록부 전 작품 텍스트 링크, 루트에
   `data-testid={HOME_TESTID}`. Phase 1에서는 `/`의 홈 화면이며, Phase 2
