@@ -8,7 +8,7 @@ import {
 } from './theme.ts'
 
 // 사이트 공통 크롬 스타일 조각 — 우주 배경과 제목/태그라인 타이포그래피.
-// 홈 씬(scene/Home)과 씬 폴백(scene/HomeFallback), 전체 화면 작품 목록
+// 홈 씬(scene/Home)과 씬 폴백 화면이 되는 전체 화면 작품 목록
 // (works/WorksList)이 같은 무드를 유지해야 하므로 공통부는 여기 한 곳에만
 // 두고, 각 컴포넌트는 spread 후 레이아웃 차이만 덧붙인다
 // (baseline: 두 곳 이상 인라인 중복 금지).

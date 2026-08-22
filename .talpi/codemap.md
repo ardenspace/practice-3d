@@ -53,6 +53,11 @@
   갈아치고, 아니면 아이콘이 밀어 넣은 항목 하나를 되감는다. DOM 도 라우터도
   모른다. 목록을 닫는 길이 하나 더 생기면(페이즈 3 의 Esc) 판정을 다시
   내리지 말고 이 모듈을 거친다.
+- `src/scene/sceneFallback.ts` — `decideSceneFallback({ sceneAvailable,
+  listOpen, locationKey })` 가 `{ redirect, notice }` 를 돌려준다(phase 2
+  스텝 2). 씬을 띄울 수 없을 때 `/works` 로 갈아칠지, 안내 문구를 붙일지를
+  한 곳에서 정한다. 화면도 라우터도 모른다. 씬 폴백 규칙을 알아야 하는 쪽은
+  이 모듈을 재사용한다.
 - `src/scene/webgl.ts` — `isWebGLAvailable()`. 프로브 캔버스로 webgl2 →
   webgl 순서로 시도하고 null/예외면 false. R3F Canvas 마운트 **전** 게이트로
   쓴다. jsdom 에서 three.js 가 컨텍스트를 잡으려다 죽는 일을 막는다.
@@ -84,15 +89,22 @@
   다시 비교하지 않고 `useOutlet()` 의 자식 매치 여부로 안다. 씬이 뜨는
   경우 열렸으면 `<WorksList variant="slide" />`, 닫혔으면 힌트와 아이콘을
   그린다. 씬 불가인 경우 `/works` 면 자식 라우트의 전체 화면 목록, `/` 면
-  기존 `HomeFallback`. **이번 라운드에서 그 `/` 폴백 분기가 `/works` 이동으로
-  바뀐다(페이즈 2).** phase 1 스텝 4 에서 목록이 열려 있는 동안 캔버스 층에
+  기존 `HomeFallback`(phase 2 스텝 2 에서 이 분기가 바뀐다 — 아래 참조).
+  phase 1 스텝 4 에서 목록이 열려 있는 동안 캔버스 층에
   `inert` + `aria-hidden` + `pointerEvents: 'none'` 을 건다. `<Canvas>` 자체는
   언마운트하지 않으므로 방울은 뒤에서 계속 떠다니되 닿을 수 없다. 바깥
   클릭으로 닫을 때는 `decideListClose` 의 판정을 따르고, 자기가 닫은
   경우에만 초점을 아이콘으로 돌려보낸다(뒤로가기나 주소창으로 닫힌 경우에는
   초점을 건드리지 않는다).
-- `src/scene/HomeFallback.tsx` — 현재의 씬 폴백 화면. 배경 + 제목 + 등록부
-  전 작품 텍스트 링크. **이번 라운드에서 작품 링크 목록이 빠진다.**
+  phase 2 스텝 2 에서 씬 불가 분기가 바뀌었다. 마운트 시 `decideSceneFallback`
+  이 갈아치기와 안내 여부를 정하고, 갈아치기는 effect 에서
+  `navigate(WORKS_PATH, { replace: true })` 로 한다. 주소가 아직 `/` 인 동안에도
+  화면은 이미 전체 화면 목록이라 중간 화면이 생기지 않는다. 안내 여부는
+  마운트 시점에 한 번 latch 한다. 안내 띠 스타일 `noticeStyle` 도 여기 있고,
+  화면 위에 얹히는 fixed 요소라 문구 유무가 목록 레이아웃을 밀지 않는다.
+  (`src/scene/HomeFallback.tsx` 는 phase 2 스텝 2 에서 삭제되었다. 제목·
+  태그라인은 전체 화면 목록이 이미 이고, 작품 링크 목록은 Requirement 39 가
+  걷어냈으므로 남길 것이 없었다.)
 - `src/scene/BubbleField.tsx` — 방울 필드(Canvas 자식 전용). 작품 방울과
   장식 방울, 공용 `Bubble`(모션 useFrame + 프레넬 림 ShaderMaterial),
   호버 상태, 팝 단계(idle→burst→gone), 터치 배선. 파일 안 공용으로
@@ -142,9 +154,12 @@
   함께 핀한다. 그 사실이 드리프트하면 `navigate(-1)` 이 방문자를 사이트 밖으로
   밀어내므로 조용히 깨지면 안 된다.
 - `src/routes.test.tsx` — 라우팅 회귀 테스트. phase 1 검증자 지적으로
-  `/works` 가 목록 표면에 닿는다는 것과 `/` 가 그렇지 않다는 것을
-  `WORKS_TESTID` 로 핀했다. 자식 경로가 어긋나면 catch-all 로 조용히 새어
-  홈이 뜨는 것을 잡는다.
+  `/works` 가 목록 표면에 닿는다는 것을 `WORKS_TESTID` 로 핀했다. phase 2
+  스텝 2 에서 판별 수단을 `HOME_TESTID` 에서 `topRoutePath`
+  (`router.state.matches[0].route.path`)로 옮겼다. `/works` 가 `/` 의 자식이라
+  씬이 있든 없든 최상위 매치는 `/` 이므로, B3 가 주장하던 "이 경로는 홈
+  라우트가 맡는다"와 "catch-all 이 조용히 새지 않는다"가 두 세계 모두에서
+  참으로 남는다.
 
 - `src/scene/Home.test.tsx` — phase 2 스텝 1 에서 B4 계약 테스트 10 개로
   갈아탔다. 옛 B4 테스트 2 개(폴백이 배경·제목·작품 링크를 직접 그린다고

@@ -9,18 +9,23 @@ import {
   siteTitleStyle,
 } from '../siteStyles.ts'
 import { decideListClose } from '../works/listClose.ts'
-import { workPath } from '../works/registry.ts'
+import { WORKS_PATH, workPath } from '../works/registry.ts'
 import WorksList from '../works/WorksList.tsx'
 import WorksOpenIcon from '../works/WorksOpenIcon.tsx'
 import {
   COLOR_ACCENT_CYAN,
   COLOR_ACCENT_PINK,
   COLOR_NEBULA_PURPLE,
+  COLOR_SLIDE_EDGE,
+  COLOR_SLIDE_SURFACE,
+  COLOR_TEXT,
   HINT_ENTER_ANIMATION,
   HOME_TESTID,
+  SCENE_FALLBACK_NOTICE,
   SCENE_HINT,
   SITE_TAGLINE,
   SITE_TITLE,
+  Z_ABOVE_SCENE,
 } from '../theme.ts'
 import BubbleField from './BubbleField.tsx'
 import {
@@ -31,12 +36,14 @@ import {
   POINT_LIGHT_INTENSITY,
   POINT_LIGHT_PINK_POSITION,
 } from './constants.ts'
-import HomeFallback from './HomeFallback.tsx'
+import { decideSceneFallback } from './sceneFallback.ts'
 
 // 홈 씬 호스트 (B4 분기의 단일 지점)이자 `/`와 `/works`가 공유하는 셸.
-// - 마운트 전 isWebGLAvailable()로 WebGL을 프로브한다. 불가 →
-//   <HomeFallback /> (배경 + 제목 + 전 작품 텍스트 링크). jsdom 테스트는
-//   항상 이 경로를 타므로 R3F <Canvas>는 테스트에서 절대 마운트되지 않는다.
+// - 마운트 전 isWebGLAvailable()로 WebGL을 프로브한다. 불가 → 이 방문자의
+//   화면은 전체 화면 작품 목록이고, 주소도 그 화면이 사는 `/works`로
+//   갈아친다 (B4, Requirement 35). 무엇을 할지는 decideSceneFallback이
+//   화면 없이 정한다. jsdom 테스트는 항상 이 경로를 타므로 R3F <Canvas>는
+//   테스트에서 절대 마운트되지 않는다.
 // - `/works`는 이 컴포넌트의 자식 라우트다 (routes.tsx). 목록을 열고 닫아도
 //   Home 인스턴스가 유지되므로 씬이 처음부터 다시 뜨지 않는다
 //   (Requirement 32). 씬을 띄울 수 있으면 목록은 씬 위 슬라이드가 되고,
@@ -102,6 +109,29 @@ const hintStyle: CSSProperties = {
   animation: HINT_ENTER_ANIMATION,
 }
 
+// 씬을 띄우지 못해 방문자를 목록으로 옮겼을 때 붙는 안내 (Requirement 36).
+// 목록 위에 겹쳐 놓는 얇은 띠다 — 목록의 레이아웃을 밀지 않으므로 문구가
+// 있든 없든 화면이 같은 자리에 선다 (Requirement 37: "화면은 같고 안내만
+// 없다"). 유리면은 슬라이드와 같은 값을 쓴다.
+const noticeStyle: CSSProperties = {
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  zIndex: Z_ABOVE_SCENE,
+  margin: 0,
+  padding: '0.75rem 1.25rem',
+  textAlign: 'center',
+  fontSize: '0.8125rem',
+  fontWeight: 300,
+  lineHeight: 1.6,
+  color: COLOR_TEXT,
+  background: COLOR_SLIDE_SURFACE,
+  borderBottom: `1px solid ${COLOR_SLIDE_EDGE}`,
+  backdropFilter: 'blur(10px)',
+  WebkitBackdropFilter: 'blur(10px)',
+}
+
 export default function Home() {
   const [webglOk, setWebglOk] = useState(isWebGLAvailable)
   const navigate = useNavigate()
@@ -112,6 +142,29 @@ export default function Home() {
   // 열림 여부의 진실은 라우팅 표면 한 곳에만 있다.
   const worksOutlet = useOutlet()
   const worksOpen = worksOutlet !== null
+
+  // 씬이 없을 때 무엇을 할지 (B4). 판정은 화면 없는 순수 모듈이 하고 여기는
+  // 배선만 한다.
+  const fallback = decideSceneFallback({
+    sceneAvailable: webglOk,
+    listOpen: worksOpen,
+    locationKey: location.key,
+  })
+
+  // 안내 문구는 이 셸이 뜬 순간에 정해지고 그 뒤로 바뀌지 않는다. 갈아치고
+  // 나면 주소도 히스토리 키도 달라지지만, 방금 일어난 이동이 방문자가
+  // 요청한 것이었는지는 그때 다시 물을 수 없기 때문이다. 셸이 새로 뜨는
+  // 순간 — 새로고침, 작품 페이지에서 돌아옴 — 마다 다시 정해진다.
+  const [movedUnasked] = useState(() => fallback.notice)
+
+  // 갈아치기는 effect에서 한다. 렌더 중에 주소를 바꿀 수는 없다.
+  // 방문자를 기다리게 하는 중간 화면도, 시간이 지나야 넘어가는 이동도 두지
+  // 않는다 (Requirement 35) — 아래 렌더가 `/`에서도 이미 목록이므로
+  // 갈아치기가 끝나도 화면은 그대로다.
+  useEffect(() => {
+    if (!fallback.redirect) return
+    navigate(WORKS_PATH, { replace: true })
+  }, [fallback.redirect, navigate])
 
   // 목록을 여는 아이콘. 바깥 클릭으로 닫았을 때 초점을 여기로 되돌린다
   // (Requirement 19) — 방문자가 방금 손댄 물건이 그 아이콘이므로 초점이
@@ -159,10 +212,21 @@ export default function Home() {
   }, [])
 
   if (!webglOk) {
-    // 씬 없음. `/works`면 자식 라우트의 전체 화면 목록이 그 방문자의 화면
-    // 전부다 (WorksList가 이미 <main>을 이고 있어 덧씌우지 않는다).
-    // `/`는 아직 기존 폴백 — 페이즈 2에서 `/works`로 갈아치우기로 바뀐다.
-    return worksOutlet ?? <HomeFallback />
+    // 씬 없음 — 이 방문자의 화면은 전체 화면 작품 목록이다 (Requirement 22:
+    // 그에게는 이 화면이 홈이다). 목록을 그리는 곳은 온 사이트에 하나뿐인
+    // WorksList이고, 이 셸은 그것을 자기 손으로 다시 그리지 않는다
+    // (Requirement 39). WorksList가 이미 <main>을 이고 있어 덧씌우지 않는다.
+    //
+    // 주소가 아직 `/`면 위 effect가 `/works`로 갈아치는 중이다. 그 사이에도
+    // 화면은 지금 이 목록이라 갈아치기가 끝나도 아무것도 깜빡이지 않는다 —
+    // 씬 없는 방문자에게 `/`와 `/works`는 같은 한 화면이고, 주소만 뒤늦게
+    // 그 화면이 사는 자리로 맞춰진다.
+    return (
+      <>
+        {movedUnasked && <p style={noticeStyle}>{SCENE_FALLBACK_NOTICE}</p>}
+        {worksOutlet ?? <WorksList variant="fullscreen" />}
+      </>
+    )
   }
 
   return (

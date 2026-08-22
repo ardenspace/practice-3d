@@ -87,15 +87,11 @@ jsdom 은 언제나 WebGL 이 없으므로 페이즈 2 가 끝나면 `/` 를 여
 
 ## Gotchas
 
-- **`src/routes.test.tsx` 의 네 테스트는 페이즈 2 스텝 2 의 구현 때문에
-  깨진다.** 지우지 말고 다시 진술해야 한다. 깨지는 이유는 B3 의 라우팅 표가
-  바뀌어서가 아니라, 판별 수단(`HOME_TESTID` 가 `/` 에 뜬다)이 씬 없는
-  환경에서 더는 참이 아니기 때문이다. 대상은 `/ renders the home screen`,
-  `/ does not render the works list`, `unknown work slug goes home`,
-  `unknown path goes home` 이다. `HOME_TESTID` 대신
-  `router.state.matches[0].route.path === '/'` 를 보면(`/works` 가 `/` 의
-  자식이라 두 세계 모두에서 참) B3 가 실제로 주장하는 바 — 경로가 홈 라우트에
-  매치된다, catch-all 이 조용히 새지 않는다 — 가 그대로 유지된다.
+- **씬 없는 환경에서 `HOME_TESTID` 는 이제 어디에도 뜨지 않는다.** 페이즈 2
+  스텝 2 가 `/` 를 `/works` 로 갈아치우면서 `HomeFallback` 이 사라졌기
+  때문이다. 라우팅 단언은 `topRoutePath`
+  (`router.state.matches[0].route.path`)로 옮겨 두었다. 앞으로 "홈으로
+  간다"를 확인할 때 `HOME_TESTID` 를 쓰면 항상 null 이라 공허하게 통과한다.
 - **`/works` 라우트 요소는 `<WorksList variant="fullscreen" />` 하나로 둔다.**
   `fullscreen` 이 이미 `<main>` 을 그리므로 바깥에서 또 감싸면 `main` 이
   둘이 된다.

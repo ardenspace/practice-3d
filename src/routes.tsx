@@ -6,7 +6,8 @@ import WorkErrorBoundary from './works/WorkErrorBoundary.tsx'
 import WorksList from './works/WorksList.tsx'
 
 // B3 — 라우팅 표면의 단일 진실.
-// `/` = 홈 씬 호스트(Home: WebGL 씬 vs HomeFallback 폴백을 결정, B4),
+// `/` = 홈 씬 호스트(Home: WebGL 씬을 띄울지, 띄울 수 없어 `/works`로
+// 갈아칠지를 결정한다, B4),
 // `/works` = 작품 목록이 열린 상태,
 // `/works/<slug>` = 등록부에서 파생된 작품 페이지 (B1: 등록부에
 // 항목을 추가하면 다른 코드 수정 없이 라우트가 늘어난다).

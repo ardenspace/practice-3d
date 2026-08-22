@@ -3,9 +3,9 @@
 
 export const SITE_TITLE = 'practice-3d'
 
-// 홈 카피 (한국어, 조용한 우주 무드). 태그라인은 홈 씬과 폴백이 공유,
-// 힌트는 방울이 실제로 뜨는 WebGL 씬에서만 보인다 (폴백은 텍스트 링크라
-// "터뜨려 보세요"가 성립하지 않음).
+// 홈 카피 (한국어, 조용한 우주 무드). 태그라인은 홈 씬과 씬 없는 홈(전체
+// 화면 목록)이 공유하고, 힌트는 방울이 실제로 뜨는 WebGL 씬에서만 보인다
+// (터뜨릴 방울이 없는 화면에서는 "터뜨려 보세요"가 성립하지 않음).
 export const SITE_TAGLINE = '고요한 우주를 떠도는 방울들'
 export const SCENE_HINT = '방울을 톡, 터뜨려 보세요'
 
@@ -75,9 +75,10 @@ export const WORKS_TESTID = 'works'
 // 역할이나 문구로 집을 수 없으므로 표식을 둔다 (Requirement 19).
 export const WORKS_DISMISS_TESTID = 'works-dismiss'
 
-// 씬 위 레이어 순서 — 씬(캔버스)이 바닥, 그 위에 씬을 덮는 면들(목록을 여는
-// 아이콘, 목록 바깥의 닫기 면), 맨 위가 목록 슬라이드다. 값이 두 곳 이상에서
-// 쓰이므로 여기 한 곳에 둔다.
+// 층 순서 — 화면 본체(씬 캔버스, 또는 씬이 없을 때의 전체 화면 목록)가 바닥,
+// 그 위에 본체를 덮는 면들(목록을 여는 아이콘, 목록 바깥의 닫기 면, 씬 폴백
+// 안내 띠), 맨 위가 목록 슬라이드다. 값이 두 곳 이상에서 쓰이므로 여기
+// 한 곳에 둔다.
 export const Z_ABOVE_SCENE = 1
 export const Z_SLIDE = 2
 
@@ -99,6 +100,7 @@ export const COLOR_TEXT = '#f2eefb'
 
 // 작품 목록 슬라이드의 색 (B5) — 같은 우주 무드 안. 뒤의 방울이 비쳐야
 // 하므로 반투명 유리면이고, 가장자리는 성운 보라의 옅은 선이다.
+// 씬 폴백 안내 띠(B4)도 화면 위에 얹히는 같은 유리면이라 이 값을 나눠 쓴다.
 export const COLOR_SLIDE_SURFACE = 'rgba(11, 7, 20, 0.82)'
 export const COLOR_SLIDE_EDGE = 'rgba(139, 92, 246, 0.32)'
 export const COLOR_SLIDE_SHADOW = 'rgba(11, 7, 20, 0.55)'
