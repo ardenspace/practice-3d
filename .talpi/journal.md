@@ -43,3 +43,5 @@
 - [2026-08-22T12:14:06Z] phase 4 verified
 - [2026-08-22T12:14:28Z] phase 4 reported
 - [2026-08-22T12:38:09Z] smoke run deferred to human (no headless chromium on this machine; human's decision — manual-check.md §1 carries the keyboard smoke walk)
+- [2026-08-22T12:53:45Z] run review (through a3199f68249ff61448fa34816ccbb171b57c1666): 3 findings (1 fixed, 2 noted)
+- [2026-08-22T12:54:39Z] final report sent, awaiting acceptance
