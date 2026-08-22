@@ -11,7 +11,8 @@
   (`COLOR_SPACE_BG`, `COLOR_NEBULA_PURPLE`, `COLOR_ACCENT_PINK`,
   `COLOR_ACCENT_CYAN`, `COLOR_TEXT`), `LONG_PRESS_MS`(250 — 탭/길게
   누르기 임계값의 유일한 소스), `WORK_ERROR_MESSAGE`(사용자 노출 실패
-  문구는 여기만), `BACK_TO_HOME_LABEL`, 전환 애니메이션 축약값
+  문구는 여기만), `WORKS_EMPTY_MESSAGE`(등록부가 비었을 때 목록이 보이는
+  문구, phase 1 에서 추가), `BACK_TO_HOME_LABEL`, 전환 애니메이션 축약값
   `PAGE_ENTER_ANIMATION`/`HINT_ENTER_ANIMATION`(keyframes 와 CSS 변수
   정의는 `src/index.css`, 인라인 style 은 이 상수로만 참조).
 - `src/scene/constants.ts` — 방울 씬 상수 모듈. 카메라 z/fov, 라이트 리그,
@@ -67,6 +68,18 @@
 - `src/scene/homeStyles.ts` — Home 과 HomeFallback 이 공유하는 스타일 조각.
   `backdropStyle`, `homeTitleStyle`, `homeTaglineStyle`, `homeHeaderStyle`.
   다시 인라인 복제하지 않는다.
+
+## 작품 목록 표면 (이번 런)
+
+- `src/works/WorksList.tsx` — 온 사이트에서 작품 목록을 그리는 유일한 모듈
+  (phase 1). 표현 분기를 `variant: 'slide' | 'fullscreen'` prop 으로 바깥에서
+  받고, 등록부를 `entries?: readonly WorkEntry[]` 로 주입받으며 기본값은
+  `works` 다. 씬을 마운트하지 않고 두 모습을 각각 렌더할 수 있다. phase 1
+  스텝 1 시점에는 공개 표면만 있고 본문은 비어 있다.
+- `src/works/WorksList.test.tsx` — B5 계약 테스트 10 개 (phase 1). 항목 수·
+  순서, 등록부 파생(제목·소개·이미지 경로·링크 주소), 이미지 실패 시 텍스트
+  유지, 빈 등록부 문구, 슬라이드·전체 화면의 제목·태그라인 유무를 핀한다.
+  항목 하나는 `role="listitem"` 으로 센다.
 
 ## 테스트 기반
 

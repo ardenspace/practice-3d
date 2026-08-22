@@ -27,3 +27,4 @@
 - [2026-08-22T07:13:25Z] spec approved
 - [2026-08-22T07:21:12Z] plan approved, 4 phases
 - [2026-08-22T07:22:17Z] phase 1 started (base: 3fda4975d4504a9b75f4605e46e06675ebe576a5)
+- [2026-08-22T08:00:06Z] phase 1 contracts pinned

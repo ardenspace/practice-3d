@@ -16,6 +16,10 @@ export const WORK_ERROR_MESSAGE = '이 방울은 잠시 쉬고 있어요.'
 // 작품 페이지 → 홈 링크의 공통 라벨 (작품 페이지와 에러 바운더리가 공유).
 export const BACK_TO_HOME_LABEL = '← 방울들에게로'
 
+// 등록부가 비었을 때 작품 목록이 보여주는 문구 (B5). 실패가 아니라 상태이지만
+// 사용자 노출 문구는 종류를 가리지 않고 이 토큰 모듈에 둔다.
+export const WORKS_EMPTY_MESSAGE = '아직 떠오른 방울이 없어요.'
+
 // 페이지 전환 연출 — CSS keyframes는 index.css에 정의(page-enter,
 // hint-enter), 여기 상수는 인라인 style의 animation 축약값 단일 소스.
 // 지속시간은 CSS 변수(--page-enter-ms 등)로 index.css에 있고
