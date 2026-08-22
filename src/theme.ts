@@ -23,6 +23,11 @@ export const WORKS_EMPTY_MESSAGE = '아직 떠오른 방울이 없어요.'
 // 작품 목록 표면(B5)의 라벨 — 슬라이드와 전체 화면이 같은 이름을 쓴다.
 export const WORKS_LIST_LABEL = '작품 목록'
 
+// 씬 홈 오른쪽 위, 목록을 여는 아이콘의 이름 (Requirement 14). 아이콘은
+// 그림뿐이므로 무엇을 여는 물건인지는 이 문구가 맡는다 — 접근 가능한 이름
+// 이자 마우스 hover 툴팁이다. 아이콘의 그림은 위임 구역, 이름은 아니다.
+export const WORKS_OPEN_LABEL = '작품 목록 열기'
+
 /**
  * 목록 오브제 이미지의 대체 텍스트 (Requirement 27). 등록부의 제목과 한 줄
  * 소개에서 파생 — 등록부에 alt 필드를 새로 요구하지 않는다. 시그니처가

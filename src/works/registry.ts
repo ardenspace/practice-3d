@@ -32,9 +32,16 @@ export interface WorkEntry {
   Page: ComponentType
 }
 
+/**
+ * 작품 목록이 열린 상태의 주소 (B3). 등록 항목 경로의 접두사이기도 하다.
+ * 라우팅 표면·목록을 여는 아이콘·홈 셸이 같은 이 상수를 쓴다 (경로 리터럴
+ * 인라인 중복 금지).
+ */
+export const WORKS_PATH = '/works'
+
 /** 등록 항목의 라우트 경로 (`/works/<slug>`) — 라우팅 표면과 링크가 함께 쓴다. */
 export function workPath(slug: string): string {
-  return `/works/${slug}`
+  return `${WORKS_PATH}/${slug}`
 }
 
 export const works: readonly WorkEntry[] = [

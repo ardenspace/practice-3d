@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { useCallback, useState, type CSSProperties } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useOutlet } from 'react-router'
 import type { WebGLRenderer } from 'three'
 import {
   backdropStyle,
@@ -9,6 +9,8 @@ import {
   siteTitleStyle,
 } from '../siteStyles.ts'
 import { workPath } from '../works/registry.ts'
+import WorksList from '../works/WorksList.tsx'
+import WorksOpenIcon from '../works/WorksOpenIcon.tsx'
 import {
   COLOR_ACCENT_CYAN,
   COLOR_ACCENT_PINK,
@@ -30,10 +32,15 @@ import {
 } from './constants.ts'
 import HomeFallback from './HomeFallback.tsx'
 
-// 홈 씬 호스트 (B4 분기의 단일 지점).
+// 홈 씬 호스트 (B4 분기의 단일 지점)이자 `/`와 `/works`가 공유하는 셸.
 // - 마운트 전 isWebGLAvailable()로 WebGL을 프로브한다. 불가 →
 //   <HomeFallback /> (배경 + 제목 + 전 작품 텍스트 링크). jsdom 테스트는
 //   항상 이 경로를 타므로 R3F <Canvas>는 테스트에서 절대 마운트되지 않는다.
+// - `/works`는 이 컴포넌트의 자식 라우트다 (routes.tsx). 목록을 열고 닫아도
+//   Home 인스턴스가 유지되므로 씬이 처음부터 다시 뜨지 않는다
+//   (Requirement 32). 씬을 띄울 수 있으면 목록은 씬 위 슬라이드가 되고,
+//   띄울 수 없으면 자식 라우트의 전체 화면 목록이 그대로 화면이 된다
+//   (Requirement 31).
 // - 가능 → 씬 셸: backdrop.webp를 CSS 배경으로 깐 풀뷰포트 레이어 위에
 //   투명 R3F Canvas (앰비언트 + 핑크/시안 광원 + 방울 필드 BubbleField).
 //   제목 h1은 씬 위에 오버레이로 유지 (B3 testid 의무 포함).
@@ -89,6 +96,12 @@ export default function Home() {
   const [webglOk, setWebglOk] = useState(isWebGLAvailable)
   const navigate = useNavigate()
 
+  // 홈의 자식 라우트는 `/works` 하나뿐이다 — 자식이 매치되었다는 것이 곧
+  // "작품 목록이 열려 있다"는 뜻이다. 주소를 여기서 다시 비교하지 않으므로
+  // 열림 여부의 진실은 라우팅 표면 한 곳에만 있다.
+  const worksOutlet = useOutlet()
+  const worksOpen = worksOutlet !== null
+
   // 작품 방울 터짐 → 페이지 이동 (Requirement 5). 라우터 훅은 DOM 쪽인
   // 여기서만 쓰고, R3F 씬(BubbleField)에는 콜백으로 주입한다 — Canvas
   // 자식은 별도 리컨실러라 라우터 컨텍스트 의존을 씬 안에 두지 않는다.
@@ -108,7 +121,10 @@ export default function Home() {
   }, [])
 
   if (!webglOk) {
-    return <HomeFallback />
+    // 씬 없음. `/works`면 자식 라우트의 전체 화면 목록이 그 방문자의 화면
+    // 전부다 (WorksList가 이미 <main>을 이고 있어 덧씌우지 않는다).
+    // `/`는 아직 기존 폴백 — 페이즈 2에서 `/works`로 갈아치우기로 바뀐다.
+    return worksOutlet ?? <HomeFallback />
   }
 
   return (
@@ -137,7 +153,17 @@ export default function Home() {
         <h1 style={siteTitleStyle}>{SITE_TITLE}</h1>
         <p style={siteTaglineStyle}>{SITE_TAGLINE}</p>
       </header>
-      <p style={hintStyle}>{SCENE_HINT}</p>
+      {/* 씬이 떠 있는 홈에서만 목록을 여는 아이콘이 있다 (Requirement 14).
+          목록이 열려 있는 동안에는 아이콘도 힌트도 두지 않는다 — 열 목록이
+          이미 열려 있고, 방울은 슬라이드 뒤에 있어 지금 터뜨릴 수 없다. */}
+      {worksOpen ? (
+        <WorksList variant="slide" />
+      ) : (
+        <>
+          <p style={hintStyle}>{SCENE_HINT}</p>
+          <WorksOpenIcon />
+        </>
+      )}
     </main>
   )
 }

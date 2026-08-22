@@ -17,7 +17,8 @@
   `workObjectAlt(title, blurb)`(오브제 이미지 설명을 등록부 값에서 파생.
   문자열만 받아 토큰 모듈이 등록부를 임포트하지 않는다), 슬라이드·카드 색상
   (`COLOR_SLIDE_SURFACE/EDGE/SHADOW`, `COLOR_CARD_SURFACE/EDGE`),
-  `SLIDE_ENTER_ANIMATION` — 이상 phase 1 에서 추가.
+  `SLIDE_ENTER_ANIMATION`, `WORKS_OPEN_LABEL`('작품 목록 열기' — 아이콘의
+  접근 가능한 이름) — 이상 phase 1 에서 추가.
   `BACK_TO_HOME_LABEL`, 전환 애니메이션 축약값
   `PAGE_ENTER_ANIMATION`/`HINT_ENTER_ANIMATION`(keyframes 와 CSS 변수
   정의는 `src/index.css`, 인라인 style 은 이 상수로만 참조).
@@ -48,22 +49,32 @@
 ## 등록부와 라우팅
 
 - `src/works/registry.ts` — 작품 등록의 단일 진실. `WorkEntry`,
-  `WorkObject`(판별 유니온, v1 은 `ImageObject`), `works`, `workPath(slug)`.
-  현재 항목은 `vending-machine` 하나. 작품 메타 텍스트는 작품 폴더의 Page
+  `WorkObject`(판별 유니온, v1 은 `ImageObject`), `works`, `workPath(slug)`,
+  `WORKS_PATH`(`'/works'` — 경로 리터럴의 단일 소스, phase 1 스텝 3 에서 추가.
+  `workPath()` 가 여기서 파생된다). 현재 항목은 `vending-machine` 하나. 작품 메타 텍스트는 작품 폴더의 Page
   파일에서 상수로 정의하고 등록부가 가져간다(임포트 방향 단방향).
 - `src/routes.tsx` — 라우팅 표면의 단일 진실 `routes: RouteObject[]`. App 은
   이 배열로 `createBrowserRouter` 를, 테스트는 같은 배열로
   `createMemoryRouter` 를 만든다. 작품 라우트는 등록부에서 파생된다. 알 수
-  없는 경로는 catch-all 로 `/` 에 보낸다.
+  없는 경로는 catch-all 로 `/` 에 보낸다. phase 1 스텝 3 에서 `/works` 가
+  `/` 의 **자식 라우트**로 들어갔다. 형제로 두면 `/` ↔ `/works` 이동마다
+  Canvas 가 언마운트·재마운트되므로 자식으로 두어 같은 `Home` 인스턴스를
+  유지한다(Requirement 32). 라우트 요소는 `<WorksList variant="fullscreen" />`
+  하나다.
 - `src/works/WorkErrorBoundary.tsx` — 작품 페이지 전용 에러 바운더리 +
   도착 연출 프레임. `routes.tsx` 가 `/works/<slug>` 라우트만 감싼다. 홈 라우트는
   감싸지 않는다(씬 오류는 폴백 경로 몫이며 여기로 흡수하면 안 된다).
 
 ## 화면
 
-- `src/scene/Home.tsx` — 홈 씬 호스트. `isWebGLAvailable()` 프로브로 씬과
-  폴백을 분기하고 `webglcontextlost` 에 반응한다. **이번 라운드에서 폴백
-  분기가 `/works` 이동으로 바뀐다.**
+- `src/scene/Home.tsx` — 홈 씬 호스트이자 `/` 와 `/works` 가 공유하는 셸
+  (phase 1 스텝 3 에서 셸이 되었다). `isWebGLAvailable()` 프로브로 씬과
+  폴백을 분기하고 `webglcontextlost` 에 반응한다. 목록이 열렸는지는 주소를
+  다시 비교하지 않고 `useOutlet()` 의 자식 매치 여부로 안다. 씬이 뜨는
+  경우 열렸으면 `<WorksList variant="slide" />`, 닫혔으면 힌트와 아이콘을
+  그린다. 씬 불가인 경우 `/works` 면 자식 라우트의 전체 화면 목록, `/` 면
+  기존 `HomeFallback`. **이번 라운드에서 그 `/` 폴백 분기가 `/works` 이동으로
+  바뀐다(페이즈 2).**
 - `src/scene/HomeFallback.tsx` — 현재의 씬 폴백 화면. 배경 + 제목 + 등록부
   전 작품 텍스트 링크. **이번 라운드에서 작품 링크 목록이 빠진다.**
 - `src/scene/BubbleField.tsx` — 방울 필드(Canvas 자식 전용). 작품 방울과
@@ -87,6 +98,12 @@
   감싼다. 이미지 로드가 실패하면 카드별 상태로 `<img>` 를 접고 오브제 자리
   틀은 남긴다. `fullscreen` 은 `<main>` 에 제목·태그라인을 이고, `slide` 는
   이름 붙은 `<section>` 으로 목록만 그린다(phase 1 스텝 2 에서 구현).
+- `src/works/WorksOpenIcon.tsx` — 씬 홈 오른쪽 위에서 목록을 여는 아이콘
+  (phase 1 스텝 3). 진짜 `<a href="/works">` 라 활성화하면 히스토리가 하나
+  늘고 뒤로가기로 닫힌다. 그림은 방울 세 개 SVG, 이름은 `WORKS_OPEN_LABEL`.
+  R3F 에 닿지 않아 라우터 컨텍스트만 있으면 씬 없이 렌더하고 클릭할 수
+  있다. 아이콘이 존재하는 상태를 jsdom 이 만들 수 없으므로 여는 동작의
+  확인은 이 모듈을 단독으로 렌더하는 seam 을 쓴다.
 - `src/index.css` — 전역 CSS. 기존 `page-enter`/`hint-enter` 에 더해 phase 1
   스텝 2 가 `slide-enter` keyframes 와 `--slide-enter-ms`(320ms)를 넣었다.
   `prefers-reduced-motion` 에서 0ms 로 접힌다. CSS 모션은 여기 `@media` 가
