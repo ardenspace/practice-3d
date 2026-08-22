@@ -1,316 +1,116 @@
 # Conventions
 
-## Prior work this phase (Phase 4: Acceptance fixes)
-
-<!-- phase 시작 시 리셋. -->
-
-- step: 미사용 `@react-three/drei` 의존성 제거 (`bun remove`, src/ 임포트 0건 — 주석 언급 2건뿐) — build/test(27/27) 그린.
-- step (glb 방울 지오메트리): 사람이 Blender에서 모델링한
-  `public/bubbles.glb`의 방울 mesh를 씬 방울(작품+장식)의 지오메트리로
-  사용. 검사 결과 glb의 Bubble00–11은 전부 동일 토폴로지(1223 verts/
-  2208 tris)의 완전한 구로 반지름만 달라, 첫 mesh 하나를 추출해
-  `center()` + 단위 반지름 정규화(boundingSphere) 후 전 방울이 공유
-  (기존 반지름 상수 의미 유지). 로드는 `BubbleField.tsx`의
-  `useBubbleGeometry` 훅 — 모듈 promise 캐시로 요청 1회, fetch 시작은
-  첫 훅 마운트(Canvas 안)에서만 (jsdom 임포트 시 네트워크 요청 없음,
-  오브제 텍스처와 같은 규율). 준비 전/실패 시 폴백 절차적 구
-  (SphereGeometry 48×32, `fallbackBubbleGeometry`) — 백지 금지. 재질은
-  기존 프레넬 림 ShaderMaterial 그대로 (transmission/박막은 이 alpha
-  캔버스 셋업에서 검게 뜨는 기지 제약 — glb에서 지오메트리만 가져온다).
-  경로 상수 `BUBBLE_MODEL_SRC`('/bubbles.glb')는 constants.ts.
-  부수 수정: GLTFLoader 임포트가 three의 `getContext('webgpu')` 타입
-  오버로드를 끌어와 Home.test.tsx의 `Parameters<getContext>` 내로잉이
-  깨져 — contextId를 string으로 넓혀 비교 (타입만, 런타임 불변).
-  27/27 green, 빌드 + 4173 스모크(glb 200 fetch 1회, 콘솔 에러 0,
-  스크린샷 검수) 확인.
-- step (prefers-reduced-motion 씬 확장 — 사람 승인 "확장해볼까"): 감지는
-  신규 `src/scene/reducedMotion.ts`(아래 Shared Utilities) — matchMedia
-  'change' 리스너로 값 캐시, **라이브**(설정 변경이 다음 프레임 반영),
-  jsdom(matchMedia 없음/throw)에선 항상 false로 무해. 축소 시 행동:
-  (a) 드리프트/흔들림/자전은 로컬시간 진행에
-  `REDUCED_MOTION_TIME_SCALE`(0)을 곱해 **완전 정지 필드** — 쉬머(uTime)
-  는 실제 시간이라 색 흐름만 남아 씬이 죽지 않는다. (b) 호버 정지+확대와
-  오브제 공개는 유지(사용자 주도 기능적 피드백)하되 스무딩 λ를
-  `REDUCED_MOTION_DAMP`(30, 사실상 즉시)로. (c) 팝은 파티클 생략 — 방울
-  즉시 소멸, gone/onPopFinished는 setTimeout(POP_PARTICLE_LIFETIME)으로
-  일반 모드와 동일 타이밍(내비 딜레이/리스폰 불변). 축소 여부는 터짐
-  확정 순간 ref로 고정(연출 반쯤 섞임 방지). (d) 장식 리스폰은 정지
-  필드에서 화면 밖 스폰이 안 보이므로 시드 랜덤 위치에 불연속 등장
-  (startFrac=0 강제 생략). 상수 2개는 constants.ts "모션 축소" 섹션.
-  헬퍼 유닛 테스트 7개(`reducedMotion.test.ts`, matchMedia 페이크 —
-  없음/throw/초기값/라이브 양방향/구형 addListener/jsdom 싱글턴).
-  34/34 green, 빌드 + 4173 일반 스모크 + reduce 에뮬레이션 검증(2초 프레임
-  diff 0.20% vs 일반 1.47% — 정지 확인, 호버+클릭 내비 정상, 콘솔 에러 0).
-- step (SITE_TITLE 드리프트 제거): index.html `<title>`의 'practice-3d'
-  리터럴이 theme.ts `SITE_TITLE`과 중복(baseline 규칙 1 위반, 조용한
-  드리프트 경로). index.html은 `<title>%SITE_TITLE%</title>` 자리표시자로
-  바꾸고, vite.config.ts의 인라인 플러그인 `site-title`
-  (`transformIndexHtml`)이 `./src/theme`의 SITE_TITLE로 dev/build 양쪽
-  치환 — 사이트 이름 변경 = theme.ts 상수 한 곳 수정. tsconfig.node.json
-  include에 `src/theme.ts` 추가(안 하면 `tsc -b`가 TS6307로 실패 —
-  프로젝트 경계). 가드 테스트 신규 `src/siteTitle.test.ts`: index.html의
-  유일한 `<title>`이 자리표시자임을 핀 (리터럴로 되돌리면 시끄럽게 실패;
-  jsdom에선 import.meta.url이 http 스킴이라 cwd 기준으로 읽음).
-  35/35 green, 빌드(dist/index.html 제목 치환 확인) + 5173 dev 스모크
-  (curl 제목 확인 후 종료) 통과.
-
-## (지난 phase 기록 — Phase 3)
-
-<!-- phase 시작 시 리셋. Phase 1–2 산출물은 Shared Utilities 참조. -->
-
-- step 1 (터치 입력, Req 4): `LONG_PRESS_MS = 250`을 `src/theme.ts`에
-  (유일한 임계값 소스), 순수 판정 모듈 신규 `src/scene/touch.ts`
-  (`decideTouchAction`: 뗄 때 경과시간 < 임계값 → 'tap', 이상 →
-  'longpress-release'; `shouldSuppressClick`: 터치 유래 합성 click 억제 —
-  pointerType 'touch'면 억제, 'mouse'/'pen'이면 절대 억제 안 함, 없으면
-  `TOUCH_CLICK_SUPPRESS_MS`(constants.ts, 500ms) 시간창 폴백) + 경계
-  테스트 `touch.test.ts` 9개. `BubbleField.tsx` Bubble에 터치 핸들러:
-  touch pointerdown에서 LONG_PRESS_MS 타이머 → 도달 시 호버(정지+확대+
-  오브제, 기존 hovered 상태 재사용), pointerup에서 판정 — 탭이면 데스크톱
-  클릭과 공유하는 `startPop`(기존 handleClick 본문 추출), 길게 누르기
-  해제면 un-hover만 (팝 절대 없음). pointerOver는 touch 무시(탭 호버
-  번쩍임 방지), pointerOut/pointerCancel은 터치 취소(원복, 팝 없음).
-  합성 click은 모듈 상태 `lastTouchEndAt` + shouldSuppressClick으로 전
-  방울 공통 억제 (click이 뒤 방울에 떨어지는 경우 포함). 마우스는
-  pointerType 분기로 기존 경로 무회귀. Home 캔버스 레이어에
-  `touchAction: 'none'` (씬 레이어 한정 — 오버레이/링크 무관).
-  25/25 green, 빌드/5173 liveness 확인.
-- step 2 (마감 3종): (a) 홈 카피/타이포 — `src/theme.ts`에 카피 상수
-  `SITE_TAGLINE`('고요한 우주를 떠도는 방울들', 홈 씬+폴백 공유)과
-  `SCENE_HINT`('방울을 톡, 터뜨려 보세요', WebGL 씬 전용 — 폴백은 방울이
-  없어 미표시). homeStyles에 `homeTaglineStyle`/`homeHeaderStyle` 추가,
-  제목은 이중 성운 글로우 + letter-spacing 광학 보정(paddingLeft). 힌트는
-  하단 중앙, 딜레이 페이드 인. h1 텍스트는 여전히 SITE_TITLE 그대로
-  (App.test/Home.test 핀 유지). (b) 페이지 전환 — CSS-only: keyframes
-  `page-enter`/`hint-enter` + `--page-enter-ms` 변수는 index.css
-  (reduced-motion이면 0), 인라인 참조는 theme의 `PAGE_ENTER_ANIMATION`/
-  `HINT_ENTER_ANIMATION` 상수로만. 홈 도착 페이드는 backdropStyle에,
-  작품 페이지 도착 페이드는 WorkErrorBoundary의 정상 경로 프레임 div에.
-  (c) 에러 바운더리 — 신규 `src/works/WorkErrorBoundary.tsx`(아래 Shared
-  Utilities), routes.tsx에서 작품 라우트 element만 감싼다 (홈/씬 라우트는
-  비포장 — B4 폴백 경로 불가침). 실패 문구 `WORK_ERROR_MESSAGE`
-  ('이 방울은 잠시 쉬고 있어요.')와 홈 링크 라벨 `BACK_TO_HOME_LABEL`
-  ('← 방울들에게로', 자판기 페이지와 공유)은 theme.ts 단일 소스.
-  테스트 2개 추가(픽스처 라우트 크래시 → 문구+홈 링크, 정상 경로 투명).
-  27/27 green, 빌드/5173 liveness 확인.
-- smoke fix (favicon 404): `public/favicon.svg` 신규 — 손으로 쓴 작은
-  SVG(핑크→시안 그라디언트 림의 비눗방울 원 + 흰 하이라이트 호, 보라빛
-  반투명 채움, 투명 배경 — 우주 무드 셀프호스트). index.html `<head>`에
-  `<link rel="icon" type="image/svg+xml" href="/favicon.svg">` 추가로
-  `/favicon.ico` 404 콘솔 에러 제거. 27/27 green, 빌드/4173에서
-  favicon.svg 200 확인.
-
-## (지난 phase 기록 — Phase 2)
-
-<!-- phase 시작 시 리셋. Phase 1 산출물은 Shared Utilities 참조:
-     registry, deriveWorkBubbles, routes, HomeFallback, theme 토큰,
-     test-setup. 에셋 렌더 주의사항은 git log의 phase 1 step 3 참조. -->
-
-- step 1 (B4 핀): `src/scene/Home.test.tsx` — WebGL 명시 차단 환경에서
-  홈 라우트가 폴백(배경 + 제목 + 등록부 전 작품 링크, 항목당 정확히 1개)
-  을 렌더해야 한다는 계약. 의도적 red. `/`의 element를 새 씬 호스트 stub
-  `src/scene/Home.tsx`로 교체 — stub은 B3(HOME_TESTID)와 스캐폴드 테스트
-  (SITE_TITLE h1)만 만족하고 B4 의무는 미이행. 다음 스텝이 Home에
-  WebGL 감지 + 씬/HomeFallback 분기를 구현하면 green이 된다.
-- step 2 (Home 실구현): `src/scene/Home.tsx` — 마운트 전
-  `isWebGLAvailable()`(신규 `src/scene/webgl.ts`) 프로브로 분기.
-  WebGL 불가 → `<HomeFallback />` (B4 green, jsdom은 항상 이 경로 —
-  R3F Canvas는 테스트에서 절대 마운트 안 됨). 가능 → 씬 셸: backdrop
-  CSS 배경 + 투명 R3F Canvas (앰비언트 + 핑크/시안 pointLight만, 방울
-  필드는 다음 스텝) + 제목 h1 오버레이. Canvas onCreated에서
-  `webglcontextlost` 리스너 등록 → 상태 전환으로 폴백 렌더 (수동 검수
-  범위). 16/16 green.
-- step 3 (방울 필드): `src/scene/BubbleField.tsx` — Canvas 자식으로 방울
-  필드. 작품 방울은 `deriveWorkBubbles(works)`에서만 파생 (씬은 등록부
-  직접 소비 금지, B1 conformance) — `WorkBubbleView`가 entry를 들고 있어
-  다음 스텝(호버/클릭)이 slug/title/object.src를 쓴다. 장식 방울 12개.
-  재질은 transmission 없는 커스텀 프레넬 림 ShaderMaterial (alpha 캔버스
-  + CSS backdrop 조합에서 transmission이 검게 뜨는 문제 회피;
-  `public/bubbles.glb` 미사용, 파일 유지). 모션: 위 드리프트 + sin 좌우
-  흔들림 + z 스웨이 + 느린 자전, 깊이별 가시 경계 밖에서 y 랩(리스폰).
-  x/y 배치는 뷰포트 비율 기반이라 리사이즈/모바일 대응. 매직 넘버는 전부
-  `src/scene/constants.ts`. Home Canvas에 카메라 상수(CAMERA_Z/FOV) 명시.
-  상호작용은 다음 스텝 몫 — 지금은 떠다니기만. 16/16 green.
-- step 4 (데스크톱 호버): `src/scene/BubbleField.tsx` — 방울 mesh에 R3F
-  onPointerOver/Out (over는 stopPropagation — 겹친 방울 중 앞의 것만).
-  호버 = 정지 + `BUBBLE_HOVER_SCALE`(1.3) 확대, 작품 방울은 오브제
-  (`entry.object.src`)가 방울 안 정면 평면에 페이드+스케일 인. 무텔레포트
-  정지: 위치를 clock 절대시간이 아닌 방울별 로컬시간(delta×speed 누적)
-  으로 계산, speed는 1↔0 지수 감쇠(`dampTo`, 프레임레이트 독립) — 감속
-  정지·멈춘 자리 재가속. 쉬머(uTime)는 실제 시간이라 정지 중에도 흐름.
-  오브제 텍스처는 마운트 시 비동기 TextureLoader(수동, Suspense/throw
-  없음) — 실패 시 방울만 빈 채로 정상(백지 금지). 오브제 mesh는
-  `raycast={() => null}`. 커서는 모듈 카운터 기반 pointer 토글 (drei
-  배럴 임포트 회피 — jsdom 테스트 경로 경량 유지). 새 상수 8개는
-  `constants.ts` "호버" 섹션. 클릭/모바일 길게 누르기는 다음 스텝.
-  16/16 green.
-- step 5 (데스크톱 클릭 터짐): `src/scene/BubbleField.tsx` — 클릭 시 방울
-  서브트리를 `PopBurst`(Points 1드로, 표면에서 바깥으로 튀는 무지갯빛
-  조각 28개, 중력+드래그+페이드/축소, 버퍼 마운트 1회 할당)로 교체 →
-  터지는 동안 레이캐스트 대상 자체가 없어 더블 팝/호버 불가. Bubble은
-  idle→burst→gone 3단계, 클릭 시 stopPropagation(앞 방울만) + 호버/커서
-  해제, 터진 순간의 위치·호버 확대 크기 그대로 터짐. 작품 방울(Req 5):
-  터짐 시작 `POP_NAVIGATE_DELAY_MS`(420ms, 파티클 수명 650ms보다 짧아
-  페이드 중 전환) 뒤 `onWorkOpen(entry.slug)` — 라우터 훅은 DOM 쪽
-  Home(`useNavigate`+`workPath`)에만 두고 씬에는 콜백 주입 (R3F 리컨실러
-  안에서 라우터 컨텍스트 금지). 언마운트 시 예약 취소. 장식 방울(Req 6):
-  터지기만, 소멸 후 `POP_RESPAWN_DELAY_MS`(2.6s) 뒤 gen 시드로 새 모션
-  파라미터 + key 리마운트로 화면 아래에서 리스폰 (필드 안 비고, 같은
-  자리 유령 재등장 없음). 새 상수 10개는 `constants.ts` "터짐" 섹션.
-  16/16 green, 빌드/5173 liveness 확인.
-- fix (verifier 지적): Home/HomeFallback이 verbatim 중복하던 배경·제목
-  스타일을 신규 `src/scene/homeStyles.ts`(`backdropStyle`,
-  `homeTitleStyle`)로 추출해 양쪽에서 spread. Home의 라이트 리그 수치
-  (앰비언트 0.4, 포인트 위치/강도)와 BubbleField의 시드 스트라이드 소수
-  (7919/104729/15485863)를 `constants.ts` 명명 상수로 이동. 값/행동 변화
-  없음. 16/16 green.
-
 ## Baseline (applies unless overridden)
 
 - 반복 리터럴(색상, 간격, 경로, 매직 넘버)은 토큰/상수 모듈 한 곳에 둔다.
   두 곳 이상 인라인 중복 금지.
-- 두 번 나오는 로직은 공유 레이어로 추출하고 아래 Shared Utilities에
-  등록한다.
+- 두 번 나오는 로직은 공유 레이어로 추출한다. 추출 사실은
+  `.talpi/codemap.md` 에 기록한다 — 이 문서는 정책을, codemap 은 실물
+  목록을 든다.
 - 사용자 노출 실패 문구는 한 가지 톤으로, 한 곳에서 정의한다.
-- 스펙의 Simplicity Zones가 명시한 하드코딩(방울 개수/배치 상수 등)은
-  위반이 아니다.
+- 파일이 300줄을 넘기면 쪼갤지 한 번 살펴본다. 컴포넌트, 순수 헬퍼,
+  셰이더·템플릿 원본처럼 따로 떼어낼 수 있는 관심사가 있는지 본다. 한
+  파일로 두는 결론도 정당하며, 그 경우 이유를 Layout & Naming 에 한 줄
+  적는다. 적어둔 예외는 지적 대상이 아니다. 상한이 아니라 검토 신호다.
+- 스펙의 Simplicity Zones 가 명시한 하드코딩(방울 개수·배치 상수, 초점
+  표시 생김새, 슬라이드 움직임 등)은 위반이 아니다.
+
+## Dependency Direction
+
+- 소유하는 쪽은 보여주는 쪽을 모른다. 상태나 도메인 로직을 가진 모듈은
+  그것을 화면에 그리는 모듈을 임포트하지 않는다.
+- 공유는 개별을 모른다. 공유 유틸이나 공유 컴포넌트는 특정 기능 모듈을
+  임포트하지 않는다. 임포트한다면 그것은 공유가 아니다.
+- 등록부는 작품 페이지를 임포트하고 그 반대는 없다. 작품 메타 텍스트는
+  작품 폴더의 Page 파일에서 상수로 정의하고 등록부가 가져간다.
+- 씬 안(R3F Canvas 자식)에서는 라우터 훅을 쓰지 않는다. 라우팅이 필요한
+  동작은 DOM 쪽에서 콜백으로 주입한다. Canvas 자식은 별도 리컨실러라
+  라우터 컨텍스트에 기대면 안 된다.
+- **이번 라운드의 새 방향**: 키를 해석하는 쪽은 방울·3D·씬을 모른다.
+  항목 개수와 현재 위치만 알고 다음 위치를 내놓는다. 씬이 그 결과를
+  가져다 쓰는 방향이지 그 반대가 아니다(스펙 B2, Requirement 47).
 
 ## Design Tokens
 
 - 홈(방울 씬)은 우주 무드: 어두운 배경 + 보라 성운 + 핑크/시안 광원.
-  구체 색상 값은 빌드 중 `src/theme.ts`(토큰 모듈) 한 곳에 정의하고
-  여기에 등록한다.
-- 탭/길게 누르기 임계값: 상수 하나 `LONG_PRESS_MS = 250` (토큰 모듈).
-- 작품 페이지는 페이지마다 스타일 자유 — 홈 토큰을 따를 의무 없음.
-  단 페이지 안에서의 반복 리터럴은 baseline 규칙 적용.
-- 폰트 포함 모든 정적 자원은 셀프호스트 (런타임 외부 요청 금지).
+  구체 색상 값은 `src/theme.ts` 한 곳에 있다.
+- 이번 라운드에서 새로 생기는 초점 표시 색과 슬라이드 색도 이 무드 안에서
+  정하고 같은 자리에 둔다. 정확한 생김새는 위임 사항이지만 값의 자리는
+  아니다.
+- 탭/길게 누르기 임계값은 상수 하나(`LONG_PRESS_MS`)로만 존재한다. 씬
+  코드에 ms 리터럴을 인라인하지 않는다.
+- 작품 페이지는 페이지마다 스타일이 자유롭다. 홈 토큰을 따를 의무가 없다.
+  단 페이지 안에서의 반복 리터럴에는 baseline 규칙이 적용된다.
+- 폰트를 포함한 모든 정적 자원은 셀프호스트한다. 런타임 외부 요청 금지.
+- 새로 생기는 움직임(슬라이드 열림·닫힘, 초점 표시)은
+  `src/scene/reducedMotion.ts` 를 거쳐 분기한다. `matchMedia` 를 씬이나
+  컴포넌트에서 직접 부르지 않는다.
 
 ## Shared Utilities
 
-<!-- 빌드 중 implementer가 새 유틸을 만들면 여기 등록한다. -->
+정책만 적는다. 실제로 무엇이 있는지는 `.talpi/codemap.md` 가 든다.
 
-- `src/theme.ts` — 토큰/상수 모듈. 현재 `SITE_TITLE`, `HOME_TESTID`,
-  `BACKDROP_SRC`, 우주 무드 색상(`COLOR_SPACE_BG` 어두운 배경,
-  `COLOR_NEBULA_PURPLE`, `COLOR_ACCENT_PINK`, `COLOR_ACCENT_CYAN`,
-  `COLOR_TEXT`), `LONG_PRESS_MS`(250 — 탭/길게 누르기 임계값의 유일한
-  소스, 씬 코드에 ms 리터럴 인라인 금지), 홈 카피(`SITE_TAGLINE`,
-  `SCENE_HINT`), 사용자 노출 실패 문구 `WORK_ERROR_MESSAGE`(한 톤 한 곳 —
-  실패 문구는 여기만), 홈 링크 라벨 `BACK_TO_HOME_LABEL`, 전환 애니메이션
-  축약값 `PAGE_ENTER_ANIMATION`/`HINT_ENTER_ANIMATION`(keyframes와 CSS
-  변수 정의는 index.css, 인라인 style은 이 상수로만 참조).
-- `src/scene/touch.ts` — 터치 판정 순수 모듈 (타이머/이벤트 없음, 유닛
-  테스트 대상). `decideTouchAction(elapsedMs)`: 'tap' | 'longpress-release'
-  (임계값은 LONG_PRESS_MS 하나). `shouldSuppressClick(pointerType,
-  msSinceTouchEnd)`: 터치 유래 합성 click 억제 판정 — 'touch' 억제,
-  'mouse'/'pen' 절대 비억제, 미상이면 TOUCH_CLICK_SUPPRESS_MS 시간창.
-  터치 관련 판정 로직은 여기 두고 컴포넌트에는 배선만 남긴다.
-- `HOME_TESTID` (`src/theme.ts`) — 테스트 심(B3): 홈 화면 루트 요소는
-  `data-testid={HOME_TESTID}`를 가져야 한다. 라우팅 테스트가 "홈 렌더/
-  홈으로 리다이렉트"를 이 아이디로 판별한다.
-- `src/works/registry.ts` — 등록부 모듈, 작품 등록의 단일 진실.
-  타입 `WorkEntry`/`WorkObject`(판별 유니온, v1 `ImageObject`) +
-  `works: readonly WorkEntry[]`. 현재 항목: `vending-machine`.
-  패턴: 작품 메타 텍스트(title/blurb/object src)는 작품 폴더의 Page
-  파일에서 상수로 정의하고 등록부가 임포트한다 (리터럴 중복 방지,
-  임포트 방향은 registry → Page 단방향).
-- `src/scene/bubbles.ts` — 방울 목록 파생 모듈 (구현 완료).
-  `deriveWorkBubbles(entries): WorkBubble[]` (`WorkBubble = { entry }`,
-  등록부 순서 유지, 항목당 정확히 1개). 씬은 이 목록만 소비한다.
-- `src/routes.tsx` — 라우팅 표면의 단일 진실 `routes: RouteObject[]`.
-  App은 이 배열로 `createBrowserRouter`를 만들고, 테스트는 같은 배열로
-  `createMemoryRouter`를 만든다. 라우트는 등록부(`works`)에서 파생 —
-  등록부 항목 추가만으로 라우트가 늘어난다 (B1). 알 수 없는 경로는
-  catch-all `<Navigate to="/" replace>`.
-- `src/scene/Home.tsx` — 홈 씬 호스트 (default export). `/` 라우트의
-  element. 마운트 전 `isWebGLAvailable()` 프로브로 WebGL 씬(backdrop
-  CSS 배경 + 투명 R3F Canvas + 제목 오버레이) vs `<HomeFallback />`
-  (B4)을 분기하고, `webglcontextlost` 시 폴백으로 전환한다. 홈 루트
-  testid 의무(B3)는 양쪽 경로 모두 이 컴포넌트 계층이 진다. 방울 필드/
-  상호작용은 Canvas 자식으로 추가한다 (다음 스텝들).
-- `src/scene/webgl.ts` — `isWebGLAvailable(): boolean`. 프로브 캔버스로
-  webgl2 → webgl 순서 시도, null/예외 → false. R3F Canvas 마운트 *전*
-  게이트로 사용 — jsdom(WebGL 없음)에서 three.js가 컨텍스트를 잡으려다
-  죽는 일을 막는다. WebGL 필요 컴포넌트는 이 프로브를 재사용할 것.
-- `src/scene/constants.ts` — 방울 씬 상수 모듈 (카메라 z/fov, 라이트 리그
-  `AMBIENT_LIGHT_INTENSITY`/`POINT_LIGHT_INTENSITY`/
-  `POINT_LIGHT_PINK_POSITION`/`POINT_LIGHT_CYAN_POSITION`, 방울 개수/
-  크기/배치/모션 파라미터, 림 셰이더 강도, 레이아웃 시드 + 시드 스트라이드
-  소수 `SEED_STRIDE_INDEX`/`SEED_OFFSET_DECORATIVE`/
-  `SEED_STRIDE_RESPAWN_GEN`, 터치 click 억제 시간창
-  `TOUCH_CLICK_SUPPRESS_MS`). 씬 매직 넘버는 전부 여기 — 씬 코드 인라인
-  금지. 색상과 LONG_PRESS_MS는 여기 두지 않는다 (`src/theme.ts` 몫).
-- `src/scene/reducedMotion.ts` — prefers-reduced-motion 감지 헬퍼.
-  `prefersReducedMotion(): boolean` — 씬 코드의 단일 진입점. matchMedia
-  'change' 리스너로 값을 캐시해 프레임마다 불러도 공짜(라이브 갱신).
-  matchMedia 없음(jsdom)/throw면 항상 false, 절대 던지지 않는다.
-  `createReducedMotionSource(host?)`는 테스트용 주입 팩토리. CSS 쪽
-  대응(index.css @media)과 별개로, JS 프레임 루프 모션은 반드시 이
-  헬퍼로 분기한다 — matchMedia를 씬 코드에서 직접 부르지 말 것.
-  축소 시의 씬 정책(정지 필드/즉시 전환/파티클 생략)은 constants.ts의
-  REDUCED_MOTION_TIME_SCALE/REDUCED_MOTION_DAMP + BubbleField 참조.
-- `src/scene/homeStyles.ts` — Home/HomeFallback 공유 스타일 조각.
-  `backdropStyle`(풀뷰포트 우주 배경: 100dvh + BACKDROP_SRC cover/center
-  + COLOR_SPACE_BG/COLOR_TEXT + 홈 도착 page-enter 페이드),
-  `homeTitleStyle`(제목 h1 타이포 + 이중 성운 글로우 + letter-spacing
-  광학 보정), `homeTaglineStyle`(SITE_TAGLINE 한 줄), `homeHeaderStyle`
-  (제목+태그라인 세로 묶음). 두 컴포넌트는 spread 후 레이아웃 차이만
-  덧붙인다 — 이 스타일을 다시 인라인 복제하지 말 것.
-- `src/works/WorkErrorBoundary.tsx` — 작품 페이지 전용 에러 바운더리 +
-  도착 연출 프레임 (default export, 클래스 컴포넌트). routes.tsx가
-  `/works/<slug>` 라우트의 element만 이걸로 감싼다 — 홈/씬 라우트는 절대
-  감싸지 않는다 (씬 오류는 B4 폴백 몫, 여기로 흡수 금지). 정상 경로:
-  자식을 `PAGE_ENTER_ANIMATION` 페이드 div로 감쌈 (작품 페이지가 전환
-  연출을 개별 구현할 필요 없음). 크래시: `WORK_ERROR_MESSAGE` +
-  `BACK_TO_HOME_LABEL` 홈 링크의 최소 화면. 라우트 이탈 시 언마운트로
-  crashed 상태 자동 리셋.
-- `src/scene/BubbleField.tsx` — 방울 필드 (default export, Canvas 자식
-  전용 — DOM 아님). 작품 방울(`WorkBubbleView`, entry 보유) + 장식 방울
-  (`DecorativeBubble`) + 공용 `Bubble`(모션 useFrame + 프레넬 림
-  ShaderMaterial + group/mesh 분리 — 자전은 mesh만, group은 오브제
-  자식용으로 무회전). 방울별 모션 파라미터는 mulberry32 시드 랜덤으로
-  마운트 시 1회 생성. 호버 상태는 `Bubble` 내부(useState) — 자식은
-  `children?: (hovered: boolean) => ReactNode` 함수로 받아 오브제
-  (`BubbleObjet`)가 호버를 구동받는다. 파일 내 공용: `dampTo`(지수 감쇠
-  스무딩), `useHoverCursor`(카운터 기반 pointer 커서), `useObjetTexture`
-  (비동기 텍스처, 실패 조용), `useBubbleGeometry`(bubbles.glb 방울
-  지오메트리 — 단위 반지름 정규화, 공유 promise 캐시, 준비 전엔 폴백
-  절차적 구), `PopBurst`(일회성 파티클 버스트 — 원점
-  기준 구면 버스트, center/radius/onDone만 받아 재사용 가능). 클릭 터짐은
-  구현 완료: Bubble이 idle→burst→gone 단계 + `onPop`/`onPopFinished`
-  콜백, 루트 `BubbleField`는 `onWorkOpen?: (slug) => void` prop (Home이
-  주입 — 씬 안에서 라우터 훅 사용 금지). 터치(Req 4)도 구현 완료:
-  Bubble의 touch pointerdown → LONG_PRESS_MS 타이머로 호버 전환,
-  pointerup에서 `decideTouchAction` — 탭은 `startPop`(마우스 클릭과 공유
-  경로), 길게 누르기 해제는 un-hover만. 합성 click은 `lastTouchEndAt`
-  모듈 상태 + `shouldSuppressClick`으로 억제. 판정 로직은 touch.ts,
-  이 파일에는 배선만.
-- `src/scene/HomeFallback.tsx` — 홈/폴백 화면 컴포넌트 (default export).
-  배경 이미지 + `SITE_TITLE` h1 + 등록부 전 작품 텍스트 링크, 루트에
-  `data-testid={HOME_TESTID}`. Phase 1에서는 `/`의 홈 화면이며, Phase 2
-  는 홈 중앙을 WebGL 씬으로 교체하고 이 컴포넌트를 B4 폴백으로 재사용.
-- `src/test-setup.ts` — vitest setupFiles (앱 코드 아님). jsdom의
-  AbortController/AbortSignal을 Node 네이티브로 교체 — react-router 7
-  데이터 라우터의 내비게이션(`new Request(url, { signal })`)이 jsdom
-  렐름 시그널을 거부하는 문제 보정. 지우면 리다이렉트 테스트가 깨진다.
+- 화면 없이 판정만 하는 로직 — 키 해석, 입력 판정, 순서 계산 — 은 순수
+  모듈로 떼어내고 컴포넌트에는 배선만 남긴다. 타이머와 이벤트를 그 안에
+  두지 않는다. 이 규율이 있어야 WebGL 이 없는 jsdom 에서도 조작 규칙을
+  테스트할 수 있다.
+- 두 화면이 같은 스타일 조각을 쓰면 공유 조각으로 빼고 각자 레이아웃
+  차이만 덧붙인다. 스타일을 다시 인라인 복제하지 않는다.
+- 사용자에게 보이는 문구는 종류를 가리지 않고 토큰 모듈에 둔다. 실패
+  문구, 안내 문구, 라벨이 모두 여기 해당한다.
+- 브라우저 기능 탐지(WebGL, matchMedia 등)는 전용 헬퍼 하나를 두고 모두
+  그것을 재사용한다. 헬퍼는 기능이 없는 환경에서 던지지 않고 무해한 기본값을
+  돌려준다.
+- 목록처럼 한 벌로 두 모습을 내는 것은 표현 분기를 컴포넌트 바깥에서 받는다.
+  씬을 마운트하지 않고도 각 모습을 렌더할 수 있어야 한다(스펙 B5).
 
 ## Layout & Naming
 
-- `src/works/<slug>/` — 작품 페이지 컴포넌트와 그 페이지 전용 코드.
-  작품 추가 = 등록부 항목 하나 + 이 폴더 하나 + `public/works/<slug>/`
-  에셋 폴더 하나. 그 밖의 코드는 손대지 않는다 (B1).
-- `src/scene/` — 방울 씬 (R3F 캔버스, 방울, 파티클, 폴백 전환).
-- `src/theme.ts` — 디자인 토큰·상수 모듈.
-- slug 및 에셋 파일명은 kebab-case. 컴포넌트 파일은 PascalCase.
-- 테스트는 대상 옆 `*.test.ts(x)`, 러너는 Vitest.
-- dev 서버는 Vite 기본 5173 (이 머신의 8080/8000/8081/5000/7000 등
-  점유 포트 회피).
+- `src/works/<slug>/` — 작품 페이지 컴포넌트와 그 페이지 전용 코드. 작품
+  추가는 등록부 항목 하나 + 이 폴더 하나 + `public/works/<slug>/` 에셋
+  폴더 하나로 끝난다. 그 밖의 코드는 손대지 않는다(스펙 B1).
+- `src/scene/` — 방울 씬. R3F 캔버스, 방울, 파티클, 씬 폴백 전환.
+- `src/theme.ts` — 디자인 토큰과 사용자 노출 문구 상수 모듈.
+- `src/routes.tsx` — 라우팅 표면의 단일 진실.
+- 이번 라운드에서 새로 생기는 목록 표면과 키보드 조작 계층의 자리는
+  구현자가 정한다. 다만 키 해석 순수 모듈은 씬 폴더 안에 두지 않는다.
+  씬에 속하지 않는 물건이기 때문이다.
+- slug 와 에셋 파일명은 kebab-case, 컴포넌트 파일은 PascalCase.
+- 테스트는 대상 옆에 `*.test.ts(x)` 로 둔다. 러너는 Vitest.
+- dev 서버는 Vite 기본 5173, preview 는 4173 을 쓴다. 이 머신에서 상시
+  점유된 8080·8000·8081·5000·7000 은 피한다.
+
+## Environment
+
+이 머신에서 지켜야 하는 사실들이다.
+
+- dev 서버는 Vite 기본 5173, preview 는 4173 을 쓴다. 다음 포트는 다른
+  서비스가 상시 점유하고 있으므로 절대 쓰지 말고, 점유되어 있다고 죽이지도
+  않는다. `8080`(로컬 LLM), `8000`·`8081`(도커 백엔드), `5433`(도커 DB),
+  `5000`·`7000`(macOS AirPlay 수신), `7265`(Raycast), `6463`(Discord),
+  `49157`·`44950`·`44960`(rapportd, Figma).
+- 패키지 매니저는 bun 이다(`bun.lock`). 스크립트는 `bun run build`,
+  `bun run test`, `bun run dev`.
+- 기계적 확인은 `bun run build`(`tsc -b && vite build`)가 가장 싸다.
+- 커밋 메시지는 `talpi: phase <n> step <k>: <설명>` 형태이고, 마지막 줄에
+  `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>` 를
+  붙인다. 메시지 본문은 지금까지처럼 영문·한글을 섞어 쓰되 코드에 속하는
+  텍스트의 기존 관례를 따른다.
 
 ## Failure Behavior
 
 - 조용하고 우아하게. 백지 화면 금지.
-- WebGL 컨텍스트 생성 실패/실행 중 상실 → 배경 이미지 + 사이트 제목 +
-  전 작품 텍스트 링크 폴백 (B4).
-- 작품 페이지 크래시 → 에러 바운더리가 홈 링크 있는 최소 화면 표시.
-- 등록부 위반(slug 형식·중복, object.src 형식)은 테스트 실패로 잡는다 —
-  런타임 예외로 새지 않는다.
-- 콘솔 로그는 개발 중 디버깅 외 프로덕션 경로에 남기지 않는다.
+- WebGL 을 쓸 수 없거나 실행 중 잃으면 `/works` 의 전체 화면 작품 목록으로
+  간다. 방문자가 요청하지 않은 이동일 때만 안내 문구가 붙고, 그 문구는
+  화면과 소리 양쪽으로 전달된다(스펙 B4, B6).
+- 방문자를 기다리게 하는 중간 화면이나 시간이 지나면 저절로 넘어가는 이동을
+  만들지 않는다.
+- 작품 페이지가 크래시하면 에러 바운더리가 홈 링크 있는 최소 화면을 보인다.
+- 목록의 오브제 이미지를 불러오지 못해도 제목과 한 줄 소개는 남는다. 빈
+  자리만 남기지 않는다.
+- 등록부 위반(slug 형식·중복, `object.src` 형식)은 테스트 실패로 잡는다.
+  런타임 예외로 새지 않는다. 등록부는 개발자가 손으로 쓰는 파일이므로 신뢰
+  경계 안쪽이고, 런타임 검증을 두지 않는다.
+- 초점이 사라진 요소에 남지 않는다. 방울이 터지거나 씬이 사라질 때 초점은
+  갈 곳이 정해져 있어야 한다.
+- 콘솔 로그는 개발 중 디버깅 외에 프로덕션 경로에 남기지 않는다.

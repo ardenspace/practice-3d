@@ -1,0 +1,79 @@
+# Codemap
+
+빌드 중 만들어진 공유 모듈의 실물 목록. 정책은 `.talpi/conventions.md` 에
+있다. 아래 항목은 이전 런(비눗방울 오브제 포트폴리오 v1)이 남긴 것들이며,
+이번 런의 산출물은 각 스텝에서 여기 덧붙인다.
+
+## 토큰과 문구
+
+- `src/theme.ts` — 토큰·문구 모듈. `SITE_TITLE`, `SITE_TAGLINE`,
+  `SCENE_HINT`, `HOME_TESTID`, `BACKDROP_SRC`, 우주 무드 색상
+  (`COLOR_SPACE_BG`, `COLOR_NEBULA_PURPLE`, `COLOR_ACCENT_PINK`,
+  `COLOR_ACCENT_CYAN`, `COLOR_TEXT`), `LONG_PRESS_MS`(250 — 탭/길게
+  누르기 임계값의 유일한 소스), `WORK_ERROR_MESSAGE`(사용자 노출 실패
+  문구는 여기만), `BACK_TO_HOME_LABEL`, 전환 애니메이션 축약값
+  `PAGE_ENTER_ANIMATION`/`HINT_ENTER_ANIMATION`(keyframes 와 CSS 변수
+  정의는 `src/index.css`, 인라인 style 은 이 상수로만 참조).
+- `src/scene/constants.ts` — 방울 씬 상수 모듈. 카메라 z/fov, 라이트 리그,
+  방울 개수·크기·배치·모션 파라미터, 림 셰이더 강도, 레이아웃 시드와 시드
+  스트라이드 소수, `TOUCH_CLICK_SUPPRESS_MS`, 모션 축소 상수
+  (`REDUCED_MOTION_TIME_SCALE`, `REDUCED_MOTION_DAMP`),
+  `BUBBLE_MODEL_SRC`. 씬 매직 넘버는 전부 여기. 색상과 `LONG_PRESS_MS` 는
+  여기 두지 않는다(`src/theme.ts` 몫).
+
+## 순수 판정 모듈 (화면 없음, 유닛 테스트 대상)
+
+- `src/scene/touch.ts` — 터치 판정. `decideTouchAction(elapsedMs)` 는
+  'tap' | 'longpress-release', `shouldSuppressClick(pointerType,
+  msSinceTouchEnd)` 는 터치 유래 합성 click 억제 판정. 타이머와 이벤트는
+  두지 않는다.
+- `src/scene/bubbles.ts` — `deriveWorkBubbles(entries)`. 등록부 순서를
+  유지하며 항목당 방울 하나를 만든다. 씬은 이 목록만 소비한다.
+- `src/scene/reducedMotion.ts` — `prefersReducedMotion()`. matchMedia
+  'change' 리스너로 값을 캐시해 프레임마다 불러도 공짜이고 라이브로
+  갱신된다. matchMedia 가 없거나 던지면 항상 false 이며 절대 던지지 않는다.
+  `createReducedMotionSource(host?)` 는 테스트용 주입 팩토리. JS 프레임 루프
+  모션은 반드시 이 헬퍼로 분기한다.
+- `src/scene/webgl.ts` — `isWebGLAvailable()`. 프로브 캔버스로 webgl2 →
+  webgl 순서로 시도하고 null/예외면 false. R3F Canvas 마운트 **전** 게이트로
+  쓴다. jsdom 에서 three.js 가 컨텍스트를 잡으려다 죽는 일을 막는다.
+
+## 등록부와 라우팅
+
+- `src/works/registry.ts` — 작품 등록의 단일 진실. `WorkEntry`,
+  `WorkObject`(판별 유니온, v1 은 `ImageObject`), `works`, `workPath(slug)`.
+  현재 항목은 `vending-machine` 하나. 작품 메타 텍스트는 작품 폴더의 Page
+  파일에서 상수로 정의하고 등록부가 가져간다(임포트 방향 단방향).
+- `src/routes.tsx` — 라우팅 표면의 단일 진실 `routes: RouteObject[]`. App 은
+  이 배열로 `createBrowserRouter` 를, 테스트는 같은 배열로
+  `createMemoryRouter` 를 만든다. 작품 라우트는 등록부에서 파생된다. 알 수
+  없는 경로는 catch-all 로 `/` 에 보낸다.
+- `src/works/WorkErrorBoundary.tsx` — 작품 페이지 전용 에러 바운더리 +
+  도착 연출 프레임. `routes.tsx` 가 `/works/<slug>` 라우트만 감싼다. 홈 라우트는
+  감싸지 않는다(씬 오류는 폴백 경로 몫이며 여기로 흡수하면 안 된다).
+
+## 화면
+
+- `src/scene/Home.tsx` — 홈 씬 호스트. `isWebGLAvailable()` 프로브로 씬과
+  폴백을 분기하고 `webglcontextlost` 에 반응한다. **이번 라운드에서 폴백
+  분기가 `/works` 이동으로 바뀐다.**
+- `src/scene/HomeFallback.tsx` — 현재의 씬 폴백 화면. 배경 + 제목 + 등록부
+  전 작품 텍스트 링크. **이번 라운드에서 작품 링크 목록이 빠진다.**
+- `src/scene/BubbleField.tsx` — 방울 필드(Canvas 자식 전용). 작품 방울과
+  장식 방울, 공용 `Bubble`(모션 useFrame + 프레넬 림 ShaderMaterial),
+  호버 상태, 팝 단계(idle→burst→gone), 터치 배선. 파일 안 공용으로
+  `dampTo`, `useHoverCursor`, `useObjetTexture`, `useBubbleGeometry`,
+  `PopBurst`. 판정 로직은 `touch.ts` 에 있고 여기엔 배선만 둔다.
+- `src/scene/homeStyles.ts` — Home 과 HomeFallback 이 공유하는 스타일 조각.
+  `backdropStyle`, `homeTitleStyle`, `homeTaglineStyle`, `homeHeaderStyle`.
+  다시 인라인 복제하지 않는다.
+
+## 테스트 기반
+
+- `src/test-setup.ts` — vitest setupFiles. jsdom 의
+  AbortController/AbortSignal 을 Node 네이티브로 교체한다. react-router 7
+  데이터 라우터의 내비게이션이 jsdom 렐름 시그널을 거부하는 문제를 보정하며,
+  지우면 리다이렉트 테스트가 깨진다.
+- `HOME_TESTID` — 홈 화면 루트 요소의 테스트 심. **이번 라운드에서 목록
+  화면이 자기 표식을 따로 갖게 되므로, 라우팅 테스트가 `/` 와 `/works` 를
+  구별할 수 있어야 한다(스펙 B3).**

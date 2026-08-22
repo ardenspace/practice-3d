@@ -23,3 +23,7 @@
 - [2026-08-16] run review (through 6b2d893): 4 findings (0 fixed, 4 noted)
 - [2026-08-16] final report sent, awaiting acceptance
 - [2026-08-16] run done
+- [2026-08-22T04:38:02Z] run started over done run
+- [2026-08-22T07:13:25Z] spec approved
+- [2026-08-22T07:21:12Z] plan approved, 4 phases
+- [2026-08-22T07:22:17Z] phase 1 started (base: 3fda4975d4504a9b75f4605e46e06675ebe576a5)
