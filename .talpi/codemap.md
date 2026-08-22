@@ -31,6 +31,18 @@ path: src/keys/useLayerKeyDown.ts
 is: 세 키 배선 훅이 공유하는 window keydown 층(phase 3 검증자 지적으로 추출). 한 번만 붙이고, `latest` ref 로 렌더마다 새 핸들러를 만들어도 다시 구독하지 않으며, `active` 게이트를 받고, 위임 전에 `ownsChord` 를 적용한다. 타이머는 없고 판정은 `keyNav` 몫이라 여기는 배선만 든다.
 phase: 3
 
+path: src/spokenSurface.ts
+is: 낭독 표면 프로브(테스트 전용, 앱이 임포트하지 않고 `*.test.ts` 가 아니라 러너가 수집하지도 않는다). B6 의 수단이 위임 구역이므로 표준 수단을 하나도 고르지 않고 전부 받아들인다 — 이름은 `aria-label`/`aria-labelledby`, 설명은 `aria-description`/`aria-describedby`/`title`, 알림은 `role=status|alert|log`/`aria-live` 어느 쪽이든 같은 값으로 읽는다. 두 접근성 테스트 파일이 나눠 쓴다.
+phase: 4
+
+path: src/scene/sceneAccessibility.test.tsx
+is: 씬 셸이 떠 있어야 확인할 수 있는 B6 ①②③⑤ 계약 테스트 8 개. sceneShell 기법(`./webgl.ts` + R3F `Canvas` 스텁)에 더해 **등록부 모듈까지 갈아 끼운다** — 진짜 등록부에 작품이 하나뿐이라 "순서"와 "초점 자리의 이름"이 항상 참이 되고, 씬은 `entries` 같은 주입 자리를 가지면 안 되기 때문이다(B1). 씬 정거장을 DOM 모양이 아니라 **방향키가 데려가는 자리**로 집으므로 정거장이 어떤 요소인지 바뀌어도 그대로다.
+phase: 4
+
+path: src/works/worksAccessibility.test.tsx
+is: 씬 없이 확인되는 B6 ④⑥ 계약 테스트 5 개. 오브제 이미지 설명이 제목과 소개를 둘 다 담는지, 안내 문구가 알려지는지, 빈 등록부 문구가 낭독 표면에 존재하는지 본다.
+phase: 4
+
 path: src/scene/sceneShell.test.tsx
 is: 씬 셸 계약 테스트 9 개(phase 3 검증자 지적). `./webgl.ts` 와 R3F `Canvas` 를 스텁해 씬 **셸**만 띄운 뒤 B3 히스토리 표 ③행(Esc·바깥 클릭으로 닫기가 히스토리를 늘리지 않는다), Requirement 20(Esc 뒤 초점이 아이콘으로), Requirement 11·12 의 DOM 모양(탭 정거장이 정확히 둘, 정거장 안에 탭 가능한 자손이 없음, 아이콘이 정거장 뒤)을 핀한다. `getContext` 는 속이지 않는다. 방울 생김새·초점 고리·진짜 탭 키 동작은 이 파일이 말하지 못하며 브라우저 스모크 몫이다. `vi.mock` 이 파일 단위라 별도 파일로 두었다.
 phase: 3
