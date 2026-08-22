@@ -22,6 +22,7 @@ import {
   WORKS_EMPTY_MESSAGE,
   WORKS_LIST_LABEL,
   WORKS_TESTID,
+  WORK_ITEM_ATTR,
   Z_ABOVE_SCENE,
   Z_SLIDE,
   workObjectAlt,
@@ -223,6 +224,7 @@ function WorkCard({ entry }: { entry: WorkEntry }) {
         to={workPath(entry.slug)}
         aria-label={description}
         style={cardLinkStyle}
+        {...{ [WORK_ITEM_ATTR]: entry.slug }}
       >
         <span style={objetFrameStyle}>
           {!objetFailed && (
@@ -279,6 +281,11 @@ export default function WorksList({
           data-testid={WORKS_TESTID}
           data-variant={variant}
           aria-label={WORKS_LIST_LABEL}
+          // 탭 순서에는 들어가지 않지만 프로그램이 초점을 줄 수는 있는
+          // 자리. 사라지는 요소가 들고 있던 초점이 목록으로 넘어올 때,
+          // 등록부가 비어 초점을 받을 항목이 하나도 없어도 초점이
+          // <body>로 떨어지지 않게 한다 (works/worksFocus.ts).
+          tabIndex={-1}
           style={slideRootStyle}
         >
           {body}
@@ -294,6 +301,8 @@ export default function WorksList({
     <main
       data-testid={WORKS_TESTID}
       data-variant={variant}
+      // 슬라이드와 같은 이유로 초점을 받을 수 있는 자리 (위 주석 참고).
+      tabIndex={-1}
       style={fullscreenRootStyle}
     >
       <header style={siteHeaderStyle}>

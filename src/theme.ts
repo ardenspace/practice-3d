@@ -75,6 +75,12 @@ export const WORKS_TESTID = 'works'
 // 역할이나 문구로 집을 수 없으므로 표식을 둔다 (Requirement 19).
 export const WORKS_DISMISS_TESTID = 'works-dismiss'
 
+// 목록 항목이 어느 작품인지 DOM에 남기는 표식. 목록 바깥에서 "이 작품의
+// 항목"을 집어야 할 때 쓴다 — 지금은 씬이 무너질 때 초점을 목록 안으로
+// 넘기는 works/worksFocus.ts 하나가 쓰고(Requirement 38), 방울에서 항목으로
+// 초점이 건너가는 매핑도 같은 표식을 딛고 선다.
+export const WORK_ITEM_ATTR = 'data-work-slug'
+
 // 층 순서 — 화면 본체(씬 캔버스, 또는 씬이 없을 때의 전체 화면 목록)가 바닥,
 // 그 위에 본체를 덮는 면들(목록을 여는 아이콘, 목록 바깥의 닫기 면, 씬 폴백
 // 안내 띠), 맨 위가 목록 슬라이드다. 값이 두 곳 이상에서 쓰이므로 여기

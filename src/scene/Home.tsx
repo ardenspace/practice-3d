@@ -8,8 +8,10 @@ import {
   siteTaglineStyle,
   siteTitleStyle,
 } from '../siteStyles.ts'
+import ErrorBoundary from '../ErrorBoundary.tsx'
 import { decideListClose } from '../works/listClose.ts'
 import { WORKS_PATH, workPath } from '../works/registry.ts'
+import { focusWorksList } from '../works/worksFocus.ts'
 import WorksList from '../works/WorksList.tsx'
 import WorksOpenIcon from '../works/WorksOpenIcon.tsx'
 import {
@@ -52,8 +54,15 @@ import { decideSceneFallback } from './sceneFallback.ts'
 // - 가능 → 씬 셸: backdrop.webp를 CSS 배경으로 깐 풀뷰포트 레이어 위에
 //   투명 R3F Canvas (앰비언트 + 핑크/시안 광원 + 방울 필드 BubbleField).
 //   제목 h1은 씬 위에 오버레이로 유지 (B3 testid 의무 포함).
-// - 실행 중 컨텍스트 상실: 캔버스의 webglcontextlost → 폴백으로 전환
-//   (예외 없음, 백지 없음 — 검증은 수동 검수 범위, spec B4).
+// - 실행 중에 씬이 무너짐: 두 가지다. 캔버스의 webglcontextlost, 그리고 씬이
+//   끝내 올라오지 못하는 것 — 후자의 판정 기준은 "씬 서브트리가 렌더/마운트
+//   중에 던진다"이고 캔버스만 감싼 ErrorBoundary가 받는다. 둘 다 타이머를
+//   쓰지 않으므로 방문자를 기다리게 하는 중간 화면도, 시간이 지나야 넘어가는
+//   이동도 생기지 않는다 (Requirement 35). 무너졌다는 사실은 한 방향으로만
+//   움직인다 — 컨텍스트가 뒤늦게 복구되어도 화면이 스스로 다시 뒤집히지
+//   않는다 (B4). 씬이 실제로 뜨는 환경이 있어야 일어나는 사건이라 jsdom에서
+//   재현할 수 없고, 화면 없이 확인할 수 있는 규칙 부분은 decideSceneFallback에
+//   모여 있다.
 import { isWebGLAvailable } from './webgl.ts'
 
 const rootStyle: CSSProperties = {
@@ -133,7 +142,15 @@ const noticeStyle: CSSProperties = {
 }
 
 export default function Home() {
-  const [webglOk, setWebglOk] = useState(isWebGLAvailable)
+  // 이 방문자에게 씬을 띄울 수 있는가 — 마운트 전에 한 번 프로브하고 그
+  // 뒤로 다시 묻지 않는다.
+  const [webglOk] = useState(isWebGLAvailable)
+
+  // 씬이 떠 있다가 무너졌는가. 참으로만 가는 latch다 — 되돌리는 setter를
+  // 두지 않는 것이 곧 "webglcontextrestored가 와도 화면을 되돌리지 않는다"
+  // (B4)이고, 판정 쪽에서도 이 사실이 프로브 결과를 이긴다.
+  const [sceneLost, setSceneLost] = useState(false)
+
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -147,15 +164,23 @@ export default function Home() {
   // 배선만 한다.
   const fallback = decideSceneFallback({
     sceneAvailable: webglOk,
+    sceneLost,
     listOpen: worksOpen,
     locationKey: location.key,
   })
 
-  // 안내 문구는 이 셸이 뜬 순간에 정해지고 그 뒤로 바뀌지 않는다. 갈아치고
-  // 나면 주소도 히스토리 키도 달라지지만, 방금 일어난 이동이 방문자가
-  // 요청한 것이었는지는 그때 다시 물을 수 없기 때문이다. 셸이 새로 뜨는
-  // 순간 — 새로고침, 작품 페이지에서 돌아옴 — 마다 다시 정해진다.
-  const [movedUnasked] = useState(() => fallback.notice)
+  // 안내 문구가 붙는 길은 두 갈래다.
+  //
+  // 하나는 이 셸이 뜬 순간의 판정이다. 그 값은 그때 한 번 latch 한다 —
+  // 갈아치고 나면 주소도 히스토리 키도 달라지지만, 방금 일어난 이동이
+  // 방문자가 요청한 것이었는지는 그때 다시 물을 수 없기 때문이다. 셸이 새로
+  // 뜨는 순간 — 새로고침, 작품 페이지에서 돌아옴 — 마다 다시 정해진다.
+  const [unaskedAtMount] = useState(() => fallback.notice)
+
+  // 다른 하나는 실행 중에 씬이 무너진 경우다. 이쪽은 latch가 필요 없다 —
+  // 무너졌다는 사실 자체가 한 방향이라 판정이 계속 참으로 남고, `/works`에
+  // 있어 이동이 따르지 않는 경우에도 문구는 붙는다 (B4).
+  const showNotice = unaskedAtMount || fallback.notice
 
   // 갈아치기는 effect에서 한다. 렌더 중에 주소를 바꿀 수는 없다.
   // 방문자를 기다리게 하는 중간 화면도, 시간이 지나야 넘어가는 이동도 두지
@@ -201,17 +226,51 @@ export default function Home() {
     [navigate],
   )
 
-  // 실행 중 컨텍스트 상실 → 폴백 전환. Canvas onCreated에서 실제 렌더러의
-  // 캔버스 요소에 리스너를 단다 (Canvas가 언마운트되면 요소째 사라지므로
-  // 별도 해제는 불필요).
-  const handleCreated = useCallback(({ gl }: { gl: WebGLRenderer }) => {
-    gl.domElement.addEventListener('webglcontextlost', (event) => {
-      event.preventDefault()
-      setWebglOk(false)
-    })
+  // 실행 중에 씬이 무너졌다. 컨텍스트 상실과 마운트 실패가 같은 문 하나로
+  // 들어온다 — 방문자가 겪는 일이 같기 때문이다: 방금까지 보고 있던 씬 셸이
+  // 통째로 사라지고 화면이 작품 목록이 된다.
+  //
+  // 그 셸 안에 초점이 있었다면 초점을 들고 있던 요소도 함께 사라지므로
+  // 초점이 <body>로 떨어진다. 그 사실을 지금 — 아직 셸이 DOM에 있을 때 —
+  // 확인해 두었다가 전이가 끝난 뒤 목록 안으로 넘긴다 (Requirement 38).
+  // 셸 밖에 초점이 있었거나 아무 데도 없었다면 방문자에게서 초점을 빼앗지
+  // 않는다.
+  const sceneShellRef = useRef<HTMLElement>(null)
+  const focusHandoffPending = useRef(false)
+
+  const loseScene = useCallback(() => {
+    const shell = sceneShellRef.current
+    const active = document.activeElement
+    focusHandoffPending.current =
+      shell !== null && active !== null && shell.contains(active)
+    setSceneLost(true)
   }, [])
 
-  if (!webglOk) {
+  // 초점 넘기기는 화면이 제자리를 잡은 뒤에 한다. 갈아치기가 남아 있으면
+  // (`/`에서 무너진 경우) 목록이 곧 한 번 더 다시 뜨므로, 지금 초점을 준
+  // 요소는 그 다음 렌더에서 사라진다 — 갈아치기가 끝나 redirect가 내려간
+  // 뒤에 넘긴다.
+  useEffect(() => {
+    if (!sceneLost || fallback.redirect || !focusHandoffPending.current) return
+    focusHandoffPending.current = false
+    focusWorksList()
+  }, [sceneLost, fallback.redirect])
+
+  // 실행 중 컨텍스트 상실. Canvas onCreated에서 실제 렌더러의 캔버스 요소에
+  // 리스너를 단다 (Canvas가 언마운트되면 요소째 사라지므로 별도 해제는
+  // 불필요). webglcontextrestored는 듣지 않는다 — 복구를 살려 쓰는 일은
+  // 이번 라운드 밖이고, 화면이 스스로 다시 뒤집혀서도 안 된다 (B4).
+  const handleCreated = useCallback(
+    ({ gl }: { gl: WebGLRenderer }) => {
+      gl.domElement.addEventListener('webglcontextlost', (event) => {
+        event.preventDefault()
+        loseScene()
+      })
+    },
+    [loseScene],
+  )
+
+  if (!fallback.showScene) {
     // 씬 없음 — 이 방문자의 화면은 전체 화면 작품 목록이다 (Requirement 22:
     // 그에게는 이 화면이 홈이다). 목록을 그리는 곳은 온 사이트에 하나뿐인
     // WorksList이고, 이 셸은 그것을 자기 손으로 다시 그리지 않는다
@@ -221,16 +280,22 @@ export default function Home() {
     // 화면은 지금 이 목록이라 갈아치기가 끝나도 아무것도 깜빡이지 않는다 —
     // 씬 없는 방문자에게 `/`와 `/works`는 같은 한 화면이고, 주소만 뒤늦게
     // 그 화면이 사는 자리로 맞춰진다.
+    //
+    // 씬이 떠 있다가 무너진 경우에도 도착지는 똑같이 이 한 화면이다. 이미
+    // `/works`에 있었다면 갈 곳이 없으므로 이동 없이 슬라이드가 화면 전체가
+    // 되고, 제목과 태그라인은 전체 화면 목록이 이고 있는 그 하나로 그대로
+    // 이어진다 (Requirement 30 — 규칙이 하나뿐이라 둘이 되거나 사라지지
+    // 않는다).
     return (
       <>
-        {movedUnasked && <p style={noticeStyle}>{SCENE_FALLBACK_NOTICE}</p>}
+        {showNotice && <p style={noticeStyle}>{SCENE_FALLBACK_NOTICE}</p>}
         {worksOutlet ?? <WorksList variant="fullscreen" />}
       </>
     )
   }
 
   return (
-    <main data-testid={HOME_TESTID} style={rootStyle}>
+    <main data-testid={HOME_TESTID} style={rootStyle} ref={sceneShellRef}>
       {/* 목록이 열려 있는 동안 씬은 뒤에서 계속 돌지만 잠긴다
           (Requirement 16). 닫히면 그대로 다시 살아난다 (Requirement 19) —
           캔버스는 언마운트되지 않으므로 씬이 처음부터 다시 뜨지 않는다. */}
@@ -239,24 +304,32 @@ export default function Home() {
         inert={worksOpen}
         aria-hidden={worksOpen || undefined}
       >
-        <Canvas
-          gl={{ alpha: true }}
-          camera={{ position: [0, 0, CAMERA_Z], fov: CAMERA_FOV }}
-          onCreated={handleCreated}
-        >
-          <ambientLight intensity={AMBIENT_LIGHT_INTENSITY} />
-          <pointLight
-            position={POINT_LIGHT_PINK_POSITION}
-            color={COLOR_ACCENT_PINK}
-            intensity={POINT_LIGHT_INTENSITY}
-          />
-          <pointLight
-            position={POINT_LIGHT_CYAN_POSITION}
-            color={COLOR_ACCENT_CYAN}
-            intensity={POINT_LIGHT_INTENSITY}
-          />
-          <BubbleField onWorkOpen={handleWorkOpen} />
-        </Canvas>
+        {/* "씬이 끝내 올라오지 못했다"의 판정 기준: 씬 서브트리가 렌더나
+            마운트 중에 던진다. 기다리지 않으므로 중간 화면도 지연된 이동도
+            없다 (Requirement 35). 잡히면 이 자리는 비우고(fallback={null})
+            무너졌다는 사실만 위로 알린다 — 화면을 무엇으로 바꿀지는 B4의
+            폴백 판정이 정한다. 캔버스만 감싸므로 목록·제목 쪽 오류는 여기서
+            삼켜지지 않는다. */}
+        <ErrorBoundary fallback={null} onError={loseScene}>
+          <Canvas
+            gl={{ alpha: true }}
+            camera={{ position: [0, 0, CAMERA_Z], fov: CAMERA_FOV }}
+            onCreated={handleCreated}
+          >
+            <ambientLight intensity={AMBIENT_LIGHT_INTENSITY} />
+            <pointLight
+              position={POINT_LIGHT_PINK_POSITION}
+              color={COLOR_ACCENT_PINK}
+              intensity={POINT_LIGHT_INTENSITY}
+            />
+            <pointLight
+              position={POINT_LIGHT_CYAN_POSITION}
+              color={COLOR_ACCENT_CYAN}
+              intensity={POINT_LIGHT_INTENSITY}
+            />
+            <BubbleField onWorkOpen={handleWorkOpen} />
+          </Canvas>
+        </ErrorBoundary>
       </div>
       <header style={headerStyle}>
         <h1 style={siteTitleStyle}>{SITE_TITLE}</h1>

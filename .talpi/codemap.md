@@ -22,7 +22,8 @@
   `Z_SLIDE` — 이상 phase 1 에서 추가. `SCENE_FALLBACK_NOTICE`(Requirement 36
   의 안내 문구를 사람이 정한 문장 그대로, phase 2 에서 추가. 계약 테스트가
   리터럴과 대조하는 드리프트 가드를 두었으므로 문구를 고치면 시끄럽게
-  실패한다).
+  실패한다). `WORK_ITEM_ATTR`(`'data-work-slug'` — 목록 카드 링크에 붙는
+  표식, phase 2 스텝 3 에서 추가).
   `BACK_TO_HOME_LABEL`, 전환 애니메이션 축약값
   `PAGE_ENTER_ANIMATION`/`HINT_ENTER_ANIMATION`(keyframes 와 CSS 변수
   정의는 `src/index.css`, 인라인 style 은 이 상수로만 참조).
@@ -54,10 +55,26 @@
   모른다. 목록을 닫는 길이 하나 더 생기면(페이즈 3 의 Esc) 판정을 다시
   내리지 말고 이 모듈을 거친다.
 - `src/scene/sceneFallback.ts` — `decideSceneFallback({ sceneAvailable,
-  listOpen, locationKey })` 가 `{ redirect, notice }` 를 돌려준다(phase 2
-  스텝 2). 씬을 띄울 수 없을 때 `/works` 로 갈아칠지, 안내 문구를 붙일지를
-  한 곳에서 정한다. 화면도 라우터도 모른다. 씬 폴백 규칙을 알아야 하는 쪽은
-  이 모듈을 재사용한다.
+  sceneLost, listOpen, locationKey })` 가 `{ showScene, redirect, notice }` 를
+  돌려준다(phase 2 스텝 2 에서 만들고 스텝 3 에서 `sceneLost`·`showScene` 이
+  붙었다). 씬을 그릴지, `/works` 로 갈아칠지, 안내 문구를 붙일지 세 판정이
+  여기 모여 있고 컴포넌트에는 배선만 남는다. 화면도 라우터도 모른다.
+  `sceneLost` 가 `sceneAvailable` 을 이기는 첫 갈래가 곧 B4 의
+  "`webglcontextrestored` 가 와도 되돌리지 않는다"이다. 실행 중 상실이면
+  `notice` 가 참이고 `redirect` 는 `!listOpen` 이라 `/works` 에 있던 경우
+  이동 없이 문구만 붙는다.
+- `src/works/worksFocus.ts` — `focusWorksList({ slug?, doc? })`(phase 2 스텝
+  3). 사라진 요소가 들고 있던 초점이 갈 곳을 정하는 유일한 자리. 지목된
+  slug 항목 → 목록 첫 항목 → 목록 표면 자체(빈 등록부) 순으로 물러나므로
+  어느 갈래에서도 `<body>` 로 떨어지지 않는다. props 가 아니라 DOM 표식
+  (`WORK_ITEM_ATTR`)으로 목록을 찾는데, 그 목록이 라우트의 element 일 때도
+  홈이 직접 그린 것일 때도 있기 때문이다. `slug` 인자는 페이즈 3 이 방울→항목
+  매핑을 얹을 자리이며 지금은 아무도 넘기지 않는다.
+- `src/ErrorBoundary.tsx` — 공용 에러 바운더리(phase 2 스텝 3). 잡은 뒤
+  무엇을 그릴지(`fallback`)와 누구에게 알릴지(`onError`)를 바깥에서 받는다.
+  바운더리 기계가 두 곳에 필요해지면서 `WorkErrorBoundary` 에서 추출했다.
+  `WorkErrorBoundary` 는 이제 "무엇을 대신 보여줄 것인가"만 정하는 함수
+  컴포넌트다.
 - `src/scene/webgl.ts` — `isWebGLAvailable()`. 프로브 캔버스로 webgl2 →
   webgl 순서로 시도하고 null/예외면 false. R3F Canvas 마운트 **전** 게이트로
   쓴다. jsdom 에서 three.js 가 컨텍스트를 잡으려다 죽는 일을 막는다.
@@ -77,9 +94,11 @@
   Canvas 가 언마운트·재마운트되므로 자식으로 두어 같은 `Home` 인스턴스를
   유지한다(Requirement 32). 라우트 요소는 `<WorksList variant="fullscreen" />`
   하나다.
-- `src/works/WorkErrorBoundary.tsx` — 작품 페이지 전용 에러 바운더리 +
-  도착 연출 프레임. `routes.tsx` 가 `/works/<slug>` 라우트만 감싼다. 홈 라우트는
-  감싸지 않는다(씬 오류는 폴백 경로 몫이며 여기로 흡수하면 안 된다).
+- `src/works/WorkErrorBoundary.tsx` — 작품 페이지가 크래시했을 때 무엇을
+  대신 보여줄지 정하는 함수 컴포넌트 + 도착 연출 프레임. 바운더리 기계
+  자체는 phase 2 스텝 3 에서 `src/ErrorBoundary.tsx` 로 빠졌다. `routes.tsx`
+  가 `/works/<slug>` 라우트만 감싼다. 홈 라우트는 감싸지 않는다(씬 오류는
+  폴백 경로 몫이며 여기로 흡수하면 안 된다).
 
 ## 화면
 
@@ -105,6 +124,15 @@
   (`src/scene/HomeFallback.tsx` 는 phase 2 스텝 2 에서 삭제되었다. 제목·
   태그라인은 전체 화면 목록이 이미 이고, 작품 링크 목록은 Requirement 39 가
   걷어냈으므로 남길 것이 없었다.)
+  phase 2 스텝 3 에서 실행 중 전이가 붙었다. `webglOk` 는 마운트 프로브 한
+  번으로 고정하고, 무너졌다는 사실은 참으로만 가는 `sceneLost` latch 로
+  둔다(되돌리는 setter 가 없다). 캔버스 층만 `ErrorBoundary` 로 감싸 씬
+  서브트리가 던지면 그 자리를 비우고 사실만 위로 올린다 — 화면을 무엇으로
+  바꿀지는 `decideSceneFallback` 한 곳이 정한다. 타이머가 없으므로 판정을
+  기다리는 중간 화면이 생기지 않는다. 초점은 무너지는 순간
+  `document.activeElement` 가 씬 셸 안에 있었는지 확인해 두었다가 화면이
+  제자리를 잡은 뒤 `focusWorksList` 로 넘긴다. 셸 밖에 있었거나 아무 데도
+  없었으면 건드리지 않는다.
 - `src/scene/BubbleField.tsx` — 방울 필드(Canvas 자식 전용). 작품 방울과
   장식 방울, 공용 `Bubble`(모션 useFrame + 프레넬 림 ShaderMaterial),
   호버 상태, 팝 단계(idle→burst→gone), 터치 배선. 파일 안 공용으로
@@ -126,6 +154,9 @@
   감싼다. 이미지 로드가 실패하면 카드별 상태로 `<img>` 를 접고 오브제 자리
   틀은 남긴다. `fullscreen` 은 `<main>` 에 제목·태그라인을 이고, `slide` 는
   이름 붙은 `<section>` 으로 목록만 그린다(phase 1 스텝 2 에서 구현).
+  phase 2 스텝 3 에서 카드 링크에 `data-work-slug`(`WORK_ITEM_ATTR`)가,
+  두 표면 루트에 `tabIndex={-1}` 이 붙었다. 탭 순서에는 들어가지 않고
+  프로그램 초점만 받는 자리이며, 빈 등록부에서도 초점이 떨어지지 않게 한다.
   phase 1 스텝 4 에서 `slide` 가 패널 아래에 투명한 전체 화면 dismiss 면을
   깔고 바깥 클릭을 `onDismiss` prop 으로 올려보낸다. `fullscreen` 은
   `onDismiss` 를 받아도 그 면을 그리지 않는다 — Requirement 22 를 조건문이
