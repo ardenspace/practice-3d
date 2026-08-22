@@ -40,3 +40,6 @@
 - [2026-08-22T11:14:35Z] phase 3 reported
 - [2026-08-22T11:14:35Z] phase 4 started (base: a40bbd200b77f4b1cf456dc6a026a2ae487fb464)
 - [2026-08-22T11:28:30Z] phase 4 contracts pinned
+- [2026-08-22T12:14:06Z] phase 4 verified
+- [2026-08-22T12:14:28Z] phase 4 reported
+- [2026-08-22T12:38:09Z] smoke run deferred to human (no headless chromium on this machine; human's decision — manual-check.md §1 carries the keyboard smoke walk)

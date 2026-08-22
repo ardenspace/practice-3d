@@ -47,6 +47,10 @@ path: src/works/worksAccessibility.test.tsx
 is: 씬 없이 확인되는 B6 ④⑥ 계약 테스트 5 개. 오브제 이미지 설명이 제목과 소개를 둘 다 담는지, 안내 문구가 알려지는지, 빈 등록부 문구가 낭독 표면에 존재하는지 본다.
 phase: 4
 
+path: src/scene/sceneLossFocus.test.tsx
+is: Requirement 38 의 방울 갈래 회귀 테스트(런 리뷰 지적). 방향키로 방울 N 에 선 뒤 진짜 `webglcontextlost` 를 쏘아 전체 화면 목록으로 넘어가는 전이 전체를 걸어, 초점이 **그 작품의** 항목에 놓이는지 본다. 씬을 진짜로 띄우기 위해 `./webgl.ts` 와 R3F `Canvas` 를 스텁하고 등록부를 세 항목으로 갈아 끼운다(진짜 등록부는 하나뿐이라 "그 방울의 항목"과 "첫 항목"이 같아진다). 스텁 `Canvas` 가 `onCreated` 에 진짜 `<canvas>` 요소를 넘겨 그 위에 이벤트를 쏜다. `getContext` 는 속이지 않는다.
+phase: run review
+
 path: src/scene/sceneShell.test.tsx
 is: 씬 셸 계약 테스트 9 개(phase 3 검증자 지적). `./webgl.ts` 와 R3F `Canvas` 를 스텁해 씬 **셸**만 띄운 뒤 B3 히스토리 표 ③행(Esc·바깥 클릭으로 닫기가 히스토리를 늘리지 않는다), Requirement 20(Esc 뒤 초점이 아이콘으로), Requirement 11·12 의 DOM 모양(탭 정거장이 정확히 둘, 정거장 안에 탭 가능한 자손이 없음, 아이콘이 정거장 뒤)을 핀한다. `getContext` 는 속이지 않는다. 방울 생김새·초점 고리·진짜 탭 키 동작은 이 파일이 말하지 못하며 브라우저 스모크 몫이다. `vi.mock` 이 파일 단위라 별도 파일로 두었다.
 phase: 3
@@ -117,7 +121,8 @@ phase: prev-run (1·2 에서 추가)
 
 path: src/scene/Home.tsx
 is: 홈 씬 호스트이자 `/` 와 `/works` 가 공유하는 셸. 목록이 열렸는지는 `useOutlet()` 으로 안다. 열린 동안 캔버스 층에 `inert`+`aria-hidden`+`pointerEvents:none` 을 걸되 언마운트하지 않는다. 씬 불가·실행 중 상실은 `decideSceneFallback` 의 판정을 배선만 한다. 캔버스 층이 곧 씬의 초점 정거장이다(`tabIndex`, `outline:none`). 커서·정거장 초점 여부·엔터 요청 세 상태를 들고 `BubbleField` 에 내려보낸다. 탭 순서는 DOM 순서 그대로 씬 → 아이콘 → 페이지 밖이고 고리를 만들지 않는다. 빈 등록부에서는 정거장을 두지 않는다. phase 4 에서 보조기술 층을 함께 든다 — 정거장 안에 눈에 보이지 않는 `<ul>` 이 `deriveWorkBubbles(works)` 결과를 그대로 펴고(씬이 소비하는 그 파생 목록 하나를 두 번째 소비자가 딛으므로 개수·순서가 화면과 소리에서 따로 참이 될 수 없다), 정거장에 `role="group"` + 이름 + 조작법 설명이 붙고, 정거장 **밖** `<main>` 직속에 `role="status"` 알림 영역 하나가 세 갈래(목록 열림 / 씬 커서 자리 / 빈 문자열)를 말한다. 목록이 열리면 기존 `inert`+`aria-hidden` 이 이 층까지 덮으므로 뒤 씬이 읽히지 않고, 알림 영역만 밖에 있어 그 순간 "열렸다"를 말할 수 있다. phase 4 스텝 3 에서 씬 없는 갈래의 안내 띠 자체에 `role="alert"` 을 얹었다 — 눈에 보이는 그 요소가 곧 알림 영역이라 화면용·소리용 사본이 갈리지 않는다. 두 알림 영역은 갈래가 배타적이라 함께 그려지지 않으므로 화면에 알림 영역은 언제나 하나다. 강도가 갈리는 것도 의도다: 씬 쪽은 방문자 자기 조작의 중계라 polite, 폴백 안내는 요청하지 않은 화면 변화의 설명이라 assertive.
-phase: prev-run (1·2 에서 개편, 3 에서 초점 정거장, 4 에서 보조기술 층)
+런 리뷰 지적으로 정거장이 커서가 선 방울의 slug 를 `WORK_ITEM_ATTR` 로 단다. 정거장 하나가 방울 N 개를 대신하므로 커서가 옮겨 갈 때마다 이 표식이 다시 가리킨다. 초점이 아이콘에 가 있으면 `closest` 가 표식을 못 찾아 목록의 기본 자리로 물러나는데, 그것이 옳다 — 판단 기준은 커서 값이 아니라 초점의 자리다.
+phase: prev-run (1·2 에서 개편, 3 에서 초점 정거장, 4 에서 보조기술 층, 런 리뷰에서 slug 표식)
 
 path: src/scene/Home.test.tsx
 is: B4 계약 테스트 10 개. 씬 불가 시 `/works` 갈아치기, 중간 화면 없음, `historyAction === REPLACE`, 안내 문구의 두 경우, 작품 링크가 목록 표면 안에만 있을 것을 핀한다. 실행 중 상실과 뒤늦은 복구는 jsdom 에서 핀하지 못했다.

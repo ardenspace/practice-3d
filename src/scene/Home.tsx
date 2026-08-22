@@ -49,6 +49,7 @@ import {
   SITE_TAGLINE,
   SITE_TITLE,
   WORKS_OPENED_STATUS,
+  WORK_ITEM_ATTR,
   Z_ABOVE_SCENE,
   sceneBubbleStatus,
 } from '../theme.ts'
@@ -568,6 +569,22 @@ export default function Home() {
         role="group"
         aria-label={SCENE_LABEL}
         aria-describedby={SCENE_KEYBOARD_HINT_ID}
+        // 지금 이 정거장이 서 있는 방울이 어느 작품인가 (Requirement 38).
+        // 씬이 무너져 이 셸이 통째로 사라질 때, 초점이 어느 작품을 가리키고
+        // 있었는지를 읽어 가는 곳은 목록 항목과 같은 하나의 표식이다
+        // (works/worksFocus.ts의 planWorksFocusHandoff) — 방울에 있던 초점은
+        // 그 방울의 목록 항목으로 가고 항목 1로 튀지 않는다.
+        //
+        // 방울마다 DOM 요소를 두지 않으므로(Requirement 11: 씬은 정거장
+        // 하나) 표식도 하나이고, 커서가 옮겨 갈 때마다 가리키는 작품이
+        // 바뀐다. 속성 하나일 뿐 초점을 받을 수 있는 자리가 아니라서 탭
+        // 정거장 수는 그대로다.
+        //
+        // 커서가 아직 아무 데도 없으면(마우스로만 씬을 만진 방문자) 표식도
+        // 없다 — 가리키는 작품이 없으므로 초점은 목록의 기본 자리로 간다.
+        {...(focusedBubble === undefined
+          ? {}
+          : { [WORK_ITEM_ATTR]: focusedBubble.entry.slug })}
       >
         {/* 씬을 보조기술에 드러내는 층 (B6 ①). 눈에는 없고 낭독에는 있다.
             방울은 캔버스 안에 있어 DOM에 없으므로, 씬이 소비하는 그 파생
