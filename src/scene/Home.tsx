@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
-import { useCallback, useState, type CSSProperties } from 'react'
-import { useNavigate, useOutlet } from 'react-router'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useLocation, useNavigate, useOutlet } from 'react-router'
 import type { WebGLRenderer } from 'three'
 import {
   backdropStyle,
@@ -8,6 +8,7 @@ import {
   siteTaglineStyle,
   siteTitleStyle,
 } from '../siteStyles.ts'
+import { decideListClose } from '../works/listClose.ts'
 import { workPath } from '../works/registry.ts'
 import WorksList from '../works/WorksList.tsx'
 import WorksOpenIcon from '../works/WorksOpenIcon.tsx'
@@ -63,6 +64,15 @@ const canvasLayerStyle: CSSProperties = {
   touchAction: 'none',
 }
 
+// 목록이 열려 있는 동안의 씬 레이어. 방울은 계속 떠다니지만(캔버스는 그대로
+// 돌아간다) 어느 쪽에서도 만질 수 없다 (Requirement 16). inert가 초점과
+// 보조기술을, pointerEvents가 마우스를 막는다 — inert를 아직 모르는
+// 브라우저에서도 마우스는 확실히 멎게 하려고 둘 다 둔다.
+const lockedCanvasLayerStyle: CSSProperties = {
+  ...canvasLayerStyle,
+  pointerEvents: 'none',
+}
+
 // 제목 + 태그라인 오버레이 (씬 위, 포인터 통과).
 const headerStyle: CSSProperties = {
   ...siteHeaderStyle,
@@ -95,12 +105,40 @@ const hintStyle: CSSProperties = {
 export default function Home() {
   const [webglOk, setWebglOk] = useState(isWebGLAvailable)
   const navigate = useNavigate()
+  const location = useLocation()
 
   // 홈의 자식 라우트는 `/works` 하나뿐이다 — 자식이 매치되었다는 것이 곧
   // "작품 목록이 열려 있다"는 뜻이다. 주소를 여기서 다시 비교하지 않으므로
   // 열림 여부의 진실은 라우팅 표면 한 곳에만 있다.
   const worksOutlet = useOutlet()
   const worksOpen = worksOutlet !== null
+
+  // 목록을 여는 아이콘. 바깥 클릭으로 닫았을 때 초점을 여기로 되돌린다
+  // (Requirement 19) — 방문자가 방금 손댄 물건이 그 아이콘이므로 초점이
+  // 사라진 슬라이드에 남거나 문서 처음으로 튀지 않는다. 뒤로가기나 주소로
+  // 닫은 경우에는 방문자가 초점을 옮겨 달라고 한 적이 없으므로 건드리지
+  // 않는다 — 그래서 "되돌려야 한다"는 사실을 ref로 따로 기억한다.
+  const openIconRef = useRef<HTMLAnchorElement>(null)
+  const restoreIconFocus = useRef(false)
+
+  // 슬라이드 바깥이 눌렸다 → 목록을 닫는다. 히스토리를 늘리지 않는다 (B3):
+  // 사이트 안에서 열었으면 한 칸 되감고, `/works`로 곧장 들어왔으면 되감을
+  // 자리가 없으므로 홈으로 갈아친다 (그대로 되감으면 사이트 밖으로 나간다).
+  // 둘 다 `/` 안에서의 이동이라 씬은 그대로 살아 있다 (Requirement 32).
+  const handleDismiss = useCallback(() => {
+    restoreIconFocus.current = true
+    if (decideListClose(location.key) === 'back') {
+      navigate(-1)
+    } else {
+      navigate('/', { replace: true })
+    }
+  }, [location.key, navigate])
+
+  useEffect(() => {
+    if (worksOpen || !restoreIconFocus.current) return
+    restoreIconFocus.current = false
+    openIconRef.current?.focus()
+  }, [worksOpen])
 
   // 작품 방울 터짐 → 페이지 이동 (Requirement 5). 라우터 훅은 DOM 쪽인
   // 여기서만 쓰고, R3F 씬(BubbleField)에는 콜백으로 주입한다 — Canvas
@@ -129,7 +167,14 @@ export default function Home() {
 
   return (
     <main data-testid={HOME_TESTID} style={rootStyle}>
-      <div style={canvasLayerStyle}>
+      {/* 목록이 열려 있는 동안 씬은 뒤에서 계속 돌지만 잠긴다
+          (Requirement 16). 닫히면 그대로 다시 살아난다 (Requirement 19) —
+          캔버스는 언마운트되지 않으므로 씬이 처음부터 다시 뜨지 않는다. */}
+      <div
+        style={worksOpen ? lockedCanvasLayerStyle : canvasLayerStyle}
+        inert={worksOpen}
+        aria-hidden={worksOpen || undefined}
+      >
         <Canvas
           gl={{ alpha: true }}
           camera={{ position: [0, 0, CAMERA_Z], fov: CAMERA_FOV }}
@@ -157,11 +202,11 @@ export default function Home() {
           목록이 열려 있는 동안에는 아이콘도 힌트도 두지 않는다 — 열 목록이
           이미 열려 있고, 방울은 슬라이드 뒤에 있어 지금 터뜨릴 수 없다. */}
       {worksOpen ? (
-        <WorksList variant="slide" />
+        <WorksList variant="slide" onDismiss={handleDismiss} />
       ) : (
         <>
           <p style={hintStyle}>{SCENE_HINT}</p>
-          <WorksOpenIcon />
+          <WorksOpenIcon ref={openIconRef} />
         </>
       )}
     </main>

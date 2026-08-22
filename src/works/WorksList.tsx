@@ -18,9 +18,12 @@ import {
   SITE_TAGLINE,
   SITE_TITLE,
   SLIDE_ENTER_ANIMATION,
+  WORKS_DISMISS_TESTID,
   WORKS_EMPTY_MESSAGE,
   WORKS_LIST_LABEL,
   WORKS_TESTID,
+  Z_ABOVE_SCENE,
+  Z_SLIDE,
   workObjectAlt,
 } from '../theme.ts'
 import { workPath, works, type WorkEntry } from './registry.ts'
@@ -36,8 +39,14 @@ import { workPath, works, type WorkEntry } from './registry.ts'
 // 한 줄 소개, `/works/<slug>`를 가리키는 진짜 링크. 등록부에 항목을 하나
 // 더하면 다른 코드를 고치지 않아도 여기 나타난다 (Requirement 25).
 //
-// 이 스텝 밖: 여는 아이콘과 `/works` 라우트, 뒤 씬 잠그기·바깥 클릭 닫기,
-// 키보드 순회와 Esc, 보조기술 알림 층.
+// 슬라이드는 씬 위에 열리는 "창"이다. 창 바깥은 목록이 아니라 목록을 닫는
+// 면이고, 그 면을 이 컴포넌트가 함께 그린다 (Requirement 19). 닫는 방법
+// 자체 — 히스토리를 되감을지 홈으로 갈아칠지 — 는 여기 없다. 목록은 자기가
+// 닫혀야 한다는 사실만 `onDismiss`로 알리고, 주소를 아는 쪽이 그것을 맡는다.
+// 전체 화면은 닫히는 물건이 아니라 머무는 자리이므로 이 면이 아예 없다
+// (Requirement 22).
+//
+// 이 스텝 밖: 키보드 순회와 Esc, 보조기술 알림 층.
 
 /**
  * 목록이 나타나는 두 모습.
@@ -55,6 +64,15 @@ export interface WorksListProps {
    * 파생된다. 주입은 빈 등록부 같은 경계를 씬 없이 확인하기 위한 seam이다.
    */
   entries?: readonly WorkEntry[]
+  /**
+   * 슬라이드 바깥이 눌렸다 — 목록이 닫혀야 한다 (Requirement 19). 무엇을
+   * 해서 닫을지는 이 컴포넌트가 모른다.
+   *
+   * `fullscreen`에서는 무시된다. 그 화면은 닫히는 물건이 아니므로 바깥을
+   * 눌러도 아무 일이 없어야 하고, 애초에 눌릴 바깥 면을 그리지 않는다
+   * (Requirement 22).
+   */
+  onDismiss?: () => void
 }
 
 // ─── 두 모습이 공유하는 조각 ────────────────────────────────────────────
@@ -126,13 +144,29 @@ const emptyStyle: CSSProperties = {
 
 // ─── 슬라이드: 씬 위에 열리는 창 ────────────────────────────────────────
 
+// 슬라이드 바깥 — 씬을 덮는 투명한 면. 목록이 열려 있는 동안 씬으로 가던
+// 마우스는 전부 여기서 멎고(방울은 뒤에서 계속 떠다니지만 만질 수 없다),
+// 여기를 누르면 목록이 닫힌다. 색을 입히지 않는 이유는 뒤의 방울이 그대로
+// 보여야 하기 때문이고, 커서를 되돌려 두는 이유는 방울 위에서 목록을 열면
+// 손가락 커서가 그대로 굳어 보이기 때문이다.
+const dismissSurfaceStyle: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  cursor: 'default',
+  zIndex: Z_ABOVE_SCENE,
+}
+
 const slideRootStyle: CSSProperties = {
   position: 'fixed',
   top: 0,
   right: 0,
   bottom: 0,
   width: 'min(26rem, 100%)',
+  // 항목이 화면보다 많으면 창 안에서 스크롤된다 (Requirement 18).
+  // overscroll-behavior로 그 스크롤이 뒤 화면으로 넘어가지 않게 가둔다.
   overflowY: 'auto',
+  overscrollBehavior: 'contain',
+  zIndex: Z_SLIDE,
   display: 'flex',
   flexDirection: 'column',
   gap: '1.5rem',
@@ -207,7 +241,11 @@ function WorkCard({ entry }: { entry: WorkEntry }) {
   )
 }
 
-export default function WorksList({ variant, entries = works }: WorksListProps) {
+export default function WorksList({
+  variant,
+  entries = works,
+  onDismiss,
+}: WorksListProps) {
   const fullscreen = variant === 'fullscreen'
 
   const body =
@@ -226,14 +264,26 @@ export default function WorksList({ variant, entries = works }: WorksListProps) 
   // 홈 위에 얹히는 창이라 이름 붙은 영역이다.
   if (!fullscreen) {
     return (
-      <section
-        data-testid={WORKS_TESTID}
-        data-variant={variant}
-        aria-label={WORKS_LIST_LABEL}
-        style={slideRootStyle}
-      >
-        {body}
-      </section>
+      <>
+        {/* 창 바깥. 보조기술에는 목록만 있으면 되므로 이 면은 숨긴다 —
+            키보드로 목록을 닫는 길(Esc)은 페이즈 3이 따로 낸다. */}
+        {onDismiss && (
+          <div
+            data-testid={WORKS_DISMISS_TESTID}
+            aria-hidden="true"
+            style={dismissSurfaceStyle}
+            onClick={onDismiss}
+          />
+        )}
+        <section
+          data-testid={WORKS_TESTID}
+          data-variant={variant}
+          aria-label={WORKS_LIST_LABEL}
+          style={slideRootStyle}
+        >
+          {body}
+        </section>
+      </>
     )
   }
 

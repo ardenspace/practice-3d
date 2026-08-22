@@ -62,6 +62,16 @@ export const HOME_TESTID = 'home'
 // `/`(홈)와 `/works`(목록)를 구별할 수 있게 한다.
 export const WORKS_TESTID = 'works'
 
+// Test seam (B5): 슬라이드 바깥의 닫기 면. 그림도 이름도 없는 면이라
+// 역할이나 문구로 집을 수 없으므로 표식을 둔다 (Requirement 19).
+export const WORKS_DISMISS_TESTID = 'works-dismiss'
+
+// 씬 위 레이어 순서 — 씬(캔버스)이 바닥, 그 위에 씬을 덮는 면들(목록을 여는
+// 아이콘, 목록 바깥의 닫기 면), 맨 위가 목록 슬라이드다. 값이 두 곳 이상에서
+// 쓰이므로 여기 한 곳에 둔다.
+export const Z_ABOVE_SCENE = 1
+export const Z_SLIDE = 2
+
 // 배경 이미지 (B2: public/backdrop.webp 한 장). 홈/폴백과 Phase 2 씬이 공유.
 export const BACKDROP_SRC = '/backdrop.webp'
 

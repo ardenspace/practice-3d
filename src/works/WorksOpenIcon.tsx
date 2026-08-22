@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, Ref } from 'react'
 import { Link } from 'react-router'
 import {
   COLOR_ACCENT_CYAN,
@@ -7,6 +7,7 @@ import {
   COLOR_SLIDE_SHADOW,
   COLOR_SLIDE_SURFACE,
   WORKS_OPEN_LABEL,
+  Z_ABOVE_SCENE,
 } from '../theme.ts'
 import { WORKS_PATH } from './registry.ts'
 
@@ -44,7 +45,7 @@ const linkStyle: CSSProperties = {
   color: COLOR_ACCENT_CYAN,
   textDecoration: 'none',
   // 씬 레이어(absolute inset 0) 위에 뜬다.
-  zIndex: 1,
+  zIndex: Z_ABOVE_SCENE,
 }
 
 const glyphStyle: CSSProperties = {
@@ -52,9 +53,19 @@ const glyphStyle: CSSProperties = {
   filter: `drop-shadow(0 0 6px ${COLOR_NEBULA_PURPLE})`,
 }
 
-export default function WorksOpenIcon() {
+export interface WorksOpenIconProps {
+  /**
+   * 아이콘의 <a> 요소. 목록이 바깥 클릭으로 닫히면 초점이 이 아이콘으로
+   * 돌아와야 하므로(Requirement 19), 아이콘을 그리는 쪽이 그 요소를 잡을
+   * 길이 필요하다. 초점을 언제 옮길지는 홈이 정한다.
+   */
+  ref?: Ref<HTMLAnchorElement>
+}
+
+export default function WorksOpenIcon({ ref }: WorksOpenIconProps) {
   return (
     <Link
+      ref={ref}
       to={WORKS_PATH}
       aria-label={WORKS_OPEN_LABEL}
       title={WORKS_OPEN_LABEL}

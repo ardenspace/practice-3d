@@ -18,7 +18,8 @@
   문자열만 받아 토큰 모듈이 등록부를 임포트하지 않는다), 슬라이드·카드 색상
   (`COLOR_SLIDE_SURFACE/EDGE/SHADOW`, `COLOR_CARD_SURFACE/EDGE`),
   `SLIDE_ENTER_ANIMATION`, `WORKS_OPEN_LABEL`('작품 목록 열기' — 아이콘의
-  접근 가능한 이름) — 이상 phase 1 에서 추가.
+  접근 가능한 이름), `WORKS_DISMISS_TESTID`, 층 순서 토큰 `Z_ABOVE_SCENE`·
+  `Z_SLIDE` — 이상 phase 1 에서 추가.
   `BACK_TO_HOME_LABEL`, 전환 애니메이션 축약값
   `PAGE_ENTER_ANIMATION`/`HINT_ENTER_ANIMATION`(keyframes 와 CSS 변수
   정의는 `src/index.css`, 인라인 style 은 이 상수로만 참조).
@@ -42,6 +43,13 @@
   갱신된다. matchMedia 가 없거나 던지면 항상 false 이며 절대 던지지 않는다.
   `createReducedMotionSource(host?)` 는 테스트용 주입 팩토리. JS 프레임 루프
   모션은 반드시 이 헬퍼로 분기한다.
+- `src/works/listClose.ts` — `decideListClose(locationKey)`. 목록을 닫을 때
+  히스토리를 어떻게 다룰지 정하는 순수 규칙으로, `'back'` 또는
+  `'replace-home'` 을 돌려준다(phase 1 스텝 4). 현재 항목이 방문의 첫
+  항목(`location.key === 'default'`)이면 되감을 것이 없으므로 `/` 로
+  갈아치고, 아니면 아이콘이 밀어 넣은 항목 하나를 되감는다. DOM 도 라우터도
+  모른다. 목록을 닫는 길이 하나 더 생기면(페이즈 3 의 Esc) 판정을 다시
+  내리지 말고 이 모듈을 거친다.
 - `src/scene/webgl.ts` — `isWebGLAvailable()`. 프로브 캔버스로 webgl2 →
   webgl 순서로 시도하고 null/예외면 false. R3F Canvas 마운트 **전** 게이트로
   쓴다. jsdom 에서 three.js 가 컨텍스트를 잡으려다 죽는 일을 막는다.
@@ -74,7 +82,12 @@
   경우 열렸으면 `<WorksList variant="slide" />`, 닫혔으면 힌트와 아이콘을
   그린다. 씬 불가인 경우 `/works` 면 자식 라우트의 전체 화면 목록, `/` 면
   기존 `HomeFallback`. **이번 라운드에서 그 `/` 폴백 분기가 `/works` 이동으로
-  바뀐다(페이즈 2).**
+  바뀐다(페이즈 2).** phase 1 스텝 4 에서 목록이 열려 있는 동안 캔버스 층에
+  `inert` + `aria-hidden` + `pointerEvents: 'none'` 을 건다. `<Canvas>` 자체는
+  언마운트하지 않으므로 방울은 뒤에서 계속 떠다니되 닿을 수 없다. 바깥
+  클릭으로 닫을 때는 `decideListClose` 의 판정을 따르고, 자기가 닫은
+  경우에만 초점을 아이콘으로 돌려보낸다(뒤로가기나 주소창으로 닫힌 경우에는
+  초점을 건드리지 않는다).
 - `src/scene/HomeFallback.tsx` — 현재의 씬 폴백 화면. 배경 + 제목 + 등록부
   전 작품 텍스트 링크. **이번 라운드에서 작품 링크 목록이 빠진다.**
 - `src/scene/BubbleField.tsx` — 방울 필드(Canvas 자식 전용). 작품 방울과
@@ -98,11 +111,17 @@
   감싼다. 이미지 로드가 실패하면 카드별 상태로 `<img>` 를 접고 오브제 자리
   틀은 남긴다. `fullscreen` 은 `<main>` 에 제목·태그라인을 이고, `slide` 는
   이름 붙은 `<section>` 으로 목록만 그린다(phase 1 스텝 2 에서 구현).
+  phase 1 스텝 4 에서 `slide` 가 패널 아래에 투명한 전체 화면 dismiss 면을
+  깔고 바깥 클릭을 `onDismiss` prop 으로 올려보낸다. `fullscreen` 은
+  `onDismiss` 를 받아도 그 면을 그리지 않는다 — Requirement 22 를 조건문이
+  아니라 구조로 지킨다. 슬라이드 스크롤에는 `overscrollBehavior: 'contain'`
+  이 걸려 있어 뒤 페이지로 스크롤이 번지지 않는다.
 - `src/works/WorksOpenIcon.tsx` — 씬 홈 오른쪽 위에서 목록을 여는 아이콘
   (phase 1 스텝 3). 진짜 `<a href="/works">` 라 활성화하면 히스토리가 하나
   늘고 뒤로가기로 닫힌다. 그림은 방울 세 개 SVG, 이름은 `WORKS_OPEN_LABEL`.
   R3F 에 닿지 않아 라우터 컨텍스트만 있으면 씬 없이 렌더하고 클릭할 수
-  있다. 아이콘이 존재하는 상태를 jsdom 이 만들 수 없으므로 여는 동작의
+  있다. phase 1 스텝 4 에서 `<a>` 로 전달되는 `ref` 를 받아, 목록을 닫은 뒤
+  초점이 돌아올 자리가 되었다. 아이콘이 존재하는 상태를 jsdom 이 만들 수 없으므로 여는 동작의
   확인은 이 모듈을 단독으로 렌더하는 seam 을 쓴다.
 - `src/index.css` — 전역 CSS. 기존 `page-enter`/`hint-enter` 에 더해 phase 1
   스텝 2 가 `slide-enter` keyframes 와 `--slide-enter-ms`(320ms)를 넣었다.
