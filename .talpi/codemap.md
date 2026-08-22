@@ -130,7 +130,18 @@
 - `src/works/WorksList.test.tsx` — B5 계약 테스트 10 개 (phase 1). 항목 수·
   순서, 등록부 파생(제목·소개·이미지 경로·링크 주소), 이미지 실패 시 텍스트
   유지, 빈 등록부 문구, 슬라이드·전체 화면의 제목·태그라인 유무를 핀한다.
-  항목 하나는 `role="listitem"` 으로 센다.
+  항목 하나는 `role="listitem"` 으로 센다. phase 1 검증자 지적으로 항목
+  수·순서 핀이 세 항목짜리 `entries` 주입 위에서 돌도록 강화되었다(등록부에
+  작품이 하나뿐이라 기존 핀이 공회전했다).
+- `src/works/listClose.test.ts` — `decideListClose` 회귀 테스트(phase 1
+  검증자 지적). 바깥 클릭으로 닫을 때의 판정 두 갈래와, 그 판정이 기대는
+  react-router 내부 사실(첫 항목의 `location.key` 가 `'default'` 라는 것)을
+  함께 핀한다. 그 사실이 드리프트하면 `navigate(-1)` 이 방문자를 사이트 밖으로
+  밀어내므로 조용히 깨지면 안 된다.
+- `src/routes.test.tsx` — 라우팅 회귀 테스트. phase 1 검증자 지적으로
+  `/works` 가 목록 표면에 닿는다는 것과 `/` 가 그렇지 않다는 것을
+  `WORKS_TESTID` 로 핀했다. 자식 경로가 어긋나면 catch-all 로 조용히 새어
+  홈이 뜨는 것을 잡는다.
 
 ## 테스트 기반
 

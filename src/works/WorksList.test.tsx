@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it } from 'vitest'
 import { SITE_TAGLINE, SITE_TITLE, WORKS_EMPTY_MESSAGE } from '../theme.ts'
-import { workPath, works } from './registry.ts'
+import { workPath, works, type WorkEntry } from './registry.ts'
 import WorksList from './WorksList.tsx'
 import type { WorksListVariant } from './WorksList.tsx'
 
@@ -20,7 +20,30 @@ afterEach(cleanup)
 
 const VARIANTS: WorksListVariant[] = ['slide', 'fullscreen']
 
-function renderList(variant: WorksListVariant, entries?: typeof works) {
+// 여러 항목짜리 등록부 — 지금 등록부에는 작품이 하나뿐이라 "수가 같다"와
+// "순서가 같다"를 진짜 등록부로만 확인하면 항상 참이 되어 버린다(항목을
+// 떨어뜨리거나 순서를 뒤집는 버그를 잡지 못한다). `entries` seam으로 여러
+// 항목을 넣어 두 성질이 실제로 걸리게 한다.
+//
+// 슬러그는 일부러 사전순이 아니고(z → a → m), 제목은 서로의 부분 문자열이
+// 아니다 — 목록이 몰래 정렬하거나 항목을 섞으면 어긋난다.
+function fixtureEntry(slug: string, title: string): WorkEntry {
+  return {
+    slug,
+    title,
+    blurb: `${title}의 한 줄 소개`,
+    object: { type: 'image', src: `/works/${slug}/object.webp` },
+    Page: () => null,
+  }
+}
+
+const MANY: readonly WorkEntry[] = [
+  fixtureEntry('zephyr', '제퍼'),
+  fixtureEntry('anemone', '아네모네'),
+  fixtureEntry('marble', '마블'),
+]
+
+function renderList(variant: WorksListVariant, entries?: readonly WorkEntry[]) {
   return render(
     <MemoryRouter>
       <WorksList variant={variant} entries={entries} />
@@ -42,6 +65,31 @@ describe.each(VARIANTS)('B5: works list — %s view', (variant) => {
         items[i]?.textContent,
         `item ${i} must be the registry entry ${w.slug}`,
       ).toContain(w.title)
+    })
+  })
+
+  it('keeps every entry, once each, in the given order when there are several', () => {
+    const { getAllByRole } = renderList(variant, MANY)
+    const items = getAllByRole('listitem')
+
+    // 하나도 떨어뜨리지 않고, 같은 항목을 두 번 그리지도 않는다.
+    expect(items.length, 'one list item per entry — none dropped, none doubled')
+      .toBe(MANY.length)
+
+    // 배열의 순서가 방문자에게 보이는 목록 순서다 (B1). 링크 주소가 항목의
+    // 정체이므로 순서를 통째로 비교한다 — 뒤섞이면 여기서 어긋난다.
+    const hrefs = items.map((item) =>
+      within(item).getAllByRole('link')[0]?.getAttribute('href'),
+    )
+    expect(hrefs, 'visible order must be the array order').toEqual(
+      MANY.map((w) => workPath(w.slug)),
+    )
+
+    // 보이는 글자도 같은 순서다 — 주소만 맞고 내용이 밀려 있는 경우를 막는다.
+    MANY.forEach((w, i) => {
+      expect(items[i]?.textContent, `item ${i} must read as ${w.slug}`).toContain(
+        w.title,
+      )
     })
   })
 
