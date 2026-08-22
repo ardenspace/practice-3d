@@ -17,7 +17,8 @@ import {
   siteTitleStyle,
 } from '../siteStyles.ts'
 import ErrorBoundary from '../ErrorBoundary.tsx'
-import { focusedByKeyboard, useSceneKeyNav } from '../keys/useSceneKeyNav.ts'
+import { focusedByKeyboard } from '../keys/keyTargets.ts'
+import { useSceneKeyNav } from '../keys/useSceneKeyNav.ts'
 import { decideListClose } from '../works/listClose.ts'
 import { WORKS_PATH, workPath, works } from '../works/registry.ts'
 import {

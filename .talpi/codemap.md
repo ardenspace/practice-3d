@@ -11,6 +11,14 @@ path: src/keys/useSceneKeyNav.ts
 is: 씬이 뜬 홈의 키 배선. `keyNav` 의 판정을 `window` keydown 하나에 잇는다. 판정은 전부 `keyNav` 가 하고 여기는 상태를 읽고 바꿔 줄 뿐이다. 리스너를 창에 다는 근거는 Ledger 의 "홈에서 방향키를 페이지 전체에서 가로챈다"이다. `keyNav` 가 모르는 이벤트 타깃 판별(`usesKeysItself`)이 여기 있다. `focusedByKeyboard(element)`(브라우저의 `:focus-visible` 판정)도 함께 export 한다.
 phase: 3
 
+path: src/keys/useListKeyNav.ts
+is: 열린 목록의 키 배선. `keyNav` 의 판정을 window keydown 에 잇는다. **목록은 커서 상태를 들지 않는다** — 항목이 전부 진짜 링크라 DOM 초점이 곧 커서이고, 키를 누를 때마다 `document.activeElement` 에서 현재 자리를 읽는다. 그래서 탭이나 마우스로 간 자리에서 방향키가 이어지고 드리프트할 상태가 없다. 따라 스크롤은 `preventScroll` 없이 `focus()` 를 불러 브라우저에 맡긴다. 엔터는 일부러 다루지 않는다 — 항목이 진짜 링크라 기본 활성화가 곧 옳은 동작이고 여기서 다루면 그것이 이중 발동이다. `trapTab` 은 `exit` 가 있을 때만 참이라, 나가는 길 없는 탭 고리를 만들 수 없다. 작품·등록부·slug 를 모르고 항목 선택자를 호출자에게서 받는다.
+phase: 3
+
+path: src/keys/keyTargets.ts
+is: 브라우저에 되묻는 두 헬퍼 `usesKeysItself`(input/textarea/select/button/contenteditable 판별)와 `focusedByKeyboard`(`:focus-visible` 판정). 씬과 목록이 같은 사본을 쓰도록 `useSceneKeyNav` 에서 빼냈다. 키 표면이 하나 더 생기면 여기서 임포트한다.
+phase: 3
+
 path: src/keys/keyNav.test.ts
 is: B2 가운데 화면 없이 정해지는 전부를 핀한다 — 키의 뜻, 활성 항목 목록, 가로채기 술어, 순회 순서와 순환. 렌더 한 줄 없다.
 phase: 3
@@ -28,8 +36,8 @@ is: B1 의 "등록부에 항목을 하나 더 넣으면 (a) 순회 (b) 목록 (c
 phase: 3
 
 path: src/works/WorksList.tsx
-is: 온 사이트에서 작품 목록을 그리는 유일한 모듈. `variant: 'slide' | 'fullscreen'` 으로 표현을 받고 `entries` 로 등록부를 주입받아 씬 없이 렌더된다. 카드 링크에 `WORK_ITEM_ATTR`, 두 표면 루트에 `tabIndex={-1}`. slide 만 dismiss 면을 그린다.
-phase: 1 (2 에서 초점 표식 추가)
+is: 온 사이트에서 작품 목록을 그리는 유일한 모듈. `variant: 'slide' | 'fullscreen'` 으로 표현을 받고 `entries` 로 등록부를 주입받아 씬 없이 렌더된다. 카드 링크에 `WORK_ITEM_ATTR`, 두 표면 루트에 `tabIndex={-1}`. slide 만 dismiss 면을 그린다. phase 3 에서 표면 ref 를 들고 `useListKeyNav` 를 한 번 부른다. Esc 와 바깥 클릭은 같은 `onDismiss` 로 나가므로 `decideListClose` 가 여전히 유일한 판정자다.
+phase: 1 (2 에서 초점 표식, 3 에서 키 배선)
 
 path: src/works/WorksList.test.tsx
 is: B5 계약 테스트. 항목 수·순서, 등록부 파생, 이미지 실패 시 텍스트 유지, 빈 등록부 문구, 두 표면의 제목·태그라인 유무를 핀한다. 세 항목짜리 `entries` 주입 위에서 돈다.

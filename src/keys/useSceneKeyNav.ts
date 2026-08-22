@@ -6,6 +6,7 @@ import {
   moveCursor,
   type KeySurface,
 } from './keyNav.ts'
+import { usesKeysItself } from './keyTargets.ts'
 
 // 씬이 뜬 홈에서 키를 실제 DOM에 배선하는 자리. 판정은 전부 keyNav가
 // 하고(순수, 화면 없음) 여기는 그 판정을 창(window)의 keydown 하나에
@@ -23,38 +24,8 @@ import {
 
 const SURFACE: KeySurface = 'home'
 
-// 방향키·스페이스를 자기 것으로 쓰는 요소들. keyNav는 이벤트 타깃을 모르니
-// (알 필요도 없다 — 화면 없는 판정 계층이다) 타깃 판별은 리스너를 다는
-// 이쪽 몫이다. 지금 홈에는 이런 요소가 없지만, 하나 생기는 순간 조용히
-// 망가지는 대신 여기 한 줄로 막힌다.
-const SELF_MANAGED_TAGS: ReadonlySet<string> = new Set([
-  'INPUT',
-  'TEXTAREA',
-  'SELECT',
-  'BUTTON',
-])
-
-function usesKeysItself(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  return target.isContentEditable || SELF_MANAGED_TAGS.has(target.tagName)
-}
-
-/**
- * 이 요소가 지금 든 초점이 키보드로 들어온 것인가 — 브라우저의
- * `:focus-visible` 판정을 그대로 쓴다. 마우스로 씬을 눌러도 초점 정거장은
- * 초점을 받지만, 그때 방울 하나가 저 혼자 붙잡히면 마우스 방문자에게는
- * 없던 일이 생기는 것이다 (Requirement 46: 마우스 조작에 회귀 없음).
- *
- * 이 의사 클래스를 모르는 브라우저는 예외를 던진다 — 그 경우 판정하지
- * 못한 것이므로 초점 표시를 감추는 쪽이 아니라 보이는 쪽으로 기운다.
- */
-export function focusedByKeyboard(element: Element): boolean {
-  try {
-    return element.matches(':focus-visible')
-  } catch {
-    return true
-  }
-}
+// 이벤트 타깃 판별(usesKeysItself)과 초점 출처 판별(focusedByKeyboard)은
+// 씬만의 물건이 아니라 목록도 같이 쓰므로 keys/keyTargets.ts에 있다.
 
 export interface SceneKeyNavOptions {
   /**

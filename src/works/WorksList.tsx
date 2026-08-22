@@ -1,5 +1,6 @@
-import { useState, type CSSProperties } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
+import { useListKeyNav } from '../keys/useListKeyNav.ts'
 import {
   backdropStyle,
   siteHeaderStyle,
@@ -47,7 +48,23 @@ import { workPath, works, type WorkEntry } from './registry.ts'
 // 전체 화면은 닫히는 물건이 아니라 머무는 자리이므로 이 면이 아예 없다
 // (Requirement 22).
 //
-// 이 스텝 밖: 키보드 순회와 Esc, 보조기술 알림 층.
+// 목록 안의 키보드 조작(방향키 순회·따라 스크롤·Esc·슬라이드 안의 탭 고리)은
+// 두 모습이 똑같이 이고 있으므로 여기서 한 번 배선한다. 판정은 화면을 모르는
+// keys/keyNav.ts가 하고, 창에 이어 붙이는 일은 keys/useListKeyNav.ts가 한다 —
+// 이 컴포넌트는 "무엇이 항목인가"와 "여기서 나가는 길이 있는가"만 알려 준다.
+// 나가기가 실제로 무엇을 하는지(히스토리를 되감을지 갈아칠지, 초점을 어디로
+// 돌려보낼지)는 여기 없다. 바깥 클릭과 똑같이 `onDismiss` 한 통로로 알리고,
+// 주소를 아는 쪽이 works/listClose.ts를 거쳐 정한다 — 목록을 닫는 길이 둘이
+// 되어도 판정은 한 곳이다.
+//
+// 이 파일 밖: 보조기술 알림 층.
+//
+// 한 파일로 두는 이유 (conventions: 300줄 검토 신호): 길이의 대부분은 두
+// 모습의 스타일 조각이고, 그것들은 "이 목록이 어떻게 생겼는가" 하나의
+// 결정이다. 나눠 담으면 슬라이드와 전체 화면이 서로를 모른 채 어긋난다 —
+// 두 모습이 한 벌이라는 것이 B5의 요점이다. 다른 화면과 나눠 쓰는 조각은
+// 이미 siteStyles.ts로 나가 있고, 화면 없는 판정(키 해석·닫기·초점)도
+// keys/·listClose.ts·worksFocus.ts로 나가 있다.
 
 /**
  * 목록이 나타나는 두 모습.
@@ -66,12 +83,13 @@ export interface WorksListProps {
    */
   entries?: readonly WorkEntry[]
   /**
-   * 슬라이드 바깥이 눌렸다 — 목록이 닫혀야 한다 (Requirement 19). 무엇을
-   * 해서 닫을지는 이 컴포넌트가 모른다.
+   * 목록이 닫혀야 한다 — 슬라이드 바깥이 눌렸거나(Requirement 19) Esc를
+   * 눌렀다(Requirement 20). 두 길이 한 통로로 나가므로 닫는 방법이 두 벌로
+   * 갈라지지 않는다. 무엇을 해서 닫을지는 이 컴포넌트가 모른다.
    *
    * `fullscreen`에서는 무시된다. 그 화면은 닫히는 물건이 아니므로 바깥을
-   * 눌러도 아무 일이 없어야 하고, 애초에 눌릴 바깥 면을 그리지 않는다
-   * (Requirement 22).
+   * 눌러도 Esc를 눌러도 아무 일이 없어야 하고, 애초에 눌릴 바깥 면을
+   * 그리지 않는다 (Requirement 22).
    */
   onDismiss?: () => void
 }
@@ -250,6 +268,23 @@ export default function WorksList({
 }: WorksListProps) {
   const fullscreen = variant === 'fullscreen'
 
+  // 목록 안의 키보드 조작. 두 모습이 갈리는 지점은 둘뿐이다 — 나가는 길이
+  // 있는가(Esc), 탭이 안에서 도는가. 슬라이드는 씬 위에 열린 창이라 둘 다
+  // 참이고, 전체 화면은 페이지 자체라 둘 다 거짓이다. 순회와 따라 스크롤은
+  // 두 모습이 똑같다 (Requirements 18·24).
+  const surfaceRef = useRef<HTMLElement>(null)
+  const exit = fullscreen ? undefined : onDismiss
+  useListKeyNav({
+    surfaceRef,
+    itemSelector: `[${WORK_ITEM_ATTR}]`,
+    onExit: exit,
+    // 나가는 길이 있을 때만 고리를 만든다 — 이 한 줄이 B2가 슬라이드의
+    // 고리를 허용한 조건("Esc와 바깥 클릭이라는 나가는 길이 함께 있다")을
+    // 코드에서 참으로 유지한다. 길이 없으면 고리도 없으므로 방문자가 갇히는
+    // 조합 자체가 만들어지지 않는다.
+    trapTab: exit !== undefined,
+  })
+
   const body =
     entries.length === 0 ? (
       // 등록부가 비면 목록 자리에 문구 하나 (Requirement 29).
@@ -278,6 +313,7 @@ export default function WorksList({
           />
         )}
         <section
+          ref={surfaceRef}
           data-testid={WORKS_TESTID}
           data-variant={variant}
           aria-label={WORKS_LIST_LABEL}
@@ -299,6 +335,7 @@ export default function WorksList({
   // 목록이 그린다. 규칙이 하나뿐이라 제목이 둘이 되거나 사라지지 않는다.
   return (
     <main
+      ref={surfaceRef}
       data-testid={WORKS_TESTID}
       data-variant={variant}
       // 슬라이드와 같은 이유로 초점을 받을 수 있는 자리 (위 주석 참고).
