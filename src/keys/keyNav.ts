@@ -9,11 +9,6 @@
 //
 // 씬 폴더 밖에 두는 이유가 그것이다 — 씬에 속한 물건이 아니다.
 //
-// ─── 아직 껍데기다 ─────────────────────────────────────────────────────
-// 페이즈 3 스텝 1은 계약을 실패하는 테스트로 못 박는 스텝이라, 여기에는
-// 공개 표면(이름·시그니처)만 있고 판정은 하나도 없다. keyNav.test.ts가
-// 지금 실패하는 이유는 "규칙이 아직 없다"이지 "테스트가 깨졌다"가 아니다.
-//
 // 함수 모양과 자료 구조는 위임 구역이므로, 계약이 실제로 이름을 붙인 네
 // 가지만 굳혔다: 키의 뜻, 활성인 항목 목록, 가로채기 여부, 목록 안의 다음
 // 자리. 그 밖의 것(초점을 어디에 들고 있을지, 씬이 결과를 어떻게 쓰는지)은
@@ -37,29 +32,67 @@ export type ItemList = 'scene' | 'list'
 /** 항목 사이를 옮기는 두 방향. */
 export type MoveDirection = Extract<KeyIntent, 'prev' | 'next'>
 
+/** 키 하나가 뜻하는 일 — B2의 표를 그대로 옮긴 자리. */
+const KEY_INTENTS: Readonly<Record<string, KeyIntent>> = {
+  ArrowLeft: 'prev',
+  ArrowUp: 'prev',
+  ArrowRight: 'next',
+  ArrowDown: 'next',
+  Enter: 'enter',
+  Escape: 'exit',
+}
+
+/**
+ * 눌렀을 때 브라우저가 페이지를 스크롤하는 키들 (Requirement 6). 스페이스는
+ * 뜻은 없어도 여기 있다 — 항목 사이를 옮기는 동안 페이지가 밀리면 안 된다.
+ */
+const SCROLLING_KEYS: readonly string[] = [
+  'ArrowLeft',
+  'ArrowUp',
+  'ArrowRight',
+  'ArrowDown',
+  ' ',
+]
+
 /**
  * 키의 뜻 (B2의 표). 왼쪽·위는 이전, 오른쪽·아래는 다음, 엔터는 들어가기,
  * Esc는 나오기. 탭을 비롯한 나머지는 null — 표준 동작에 맡긴다.
+ *
+ * 스페이스는 표에 없어서 뜻이 없다. 그래도 `interceptsKey`는 참인데, 뜻이
+ * 없다는 것과 페이지를 밀어도 된다는 것은 다른 말이기 때문이다.
  */
-export function keyIntent(_key: string): KeyIntent | null {
-  return null
+export function keyIntent(key: string): KeyIntent | null {
+  return KEY_INTENTS[key] ?? null
 }
 
 /**
  * 지금 방향키가 도는 항목 목록. 목록이 열려 있으면 목록이고, 닫혀 있으면
  * 씬이다. 작품 페이지에는 도는 항목 목록이 없다 (null).
+ *
+ * 홈이 씬을 내놓는 데는 초점이 어디 있는지가 끼어들지 않는다 — 아이콘에
+ * 있든 아직 아무 데도 없든 방향키는 씬을 활성으로 만든다 (Requirement 5).
  */
-export function activeItemList(_surface: KeySurface): ItemList | null {
-  return null
+export function activeItemList(surface: KeySurface): ItemList | null {
+  switch (surface) {
+    case 'list':
+      return 'list'
+    case 'home':
+      return 'scene'
+    case 'work':
+      return null
+  }
 }
 
 /**
  * 이 키를 우리가 가로채는가 — 곧 브라우저 기본 동작(방향키·스페이스의
  * 페이지 스크롤)을 막고 이 계층이 처리하는가 (Requirement 6). 가로채기는
  * 홈(두 종류 모두)과 열린 목록에 한정되고 작품 페이지로 넘어가지 않는다.
+ *
+ * 작품 페이지가 빠지는 이유를 자리 이름으로 적지 않고 "도는 항목 목록이
+ * 있는가"로 적는다. 자리가 하나 더 생겨도 두 규칙이 어긋나지 않는다.
  */
-export function interceptsKey(_surface: KeySurface, _key: string): boolean {
-  return false
+export function interceptsKey(surface: KeySurface, key: string): boolean {
+  return activeItemList(surface) !== null && SCROLLING_KEYS.includes(key)
 }
 
 /**
@@ -71,9 +104,20 @@ export function interceptsKey(_surface: KeySurface, _key: string): boolean {
  * - 항목이 하나도 없으면 아무 일도 없다 (null).
  */
 export function moveCursor(
-  _current: number | null,
-  _count: number,
-  _direction: MoveDirection,
+  current: number | null,
+  count: number,
+  direction: MoveDirection,
 ): number | null {
-  return null
+  if (!Number.isFinite(count) || count < 1) return null
+  const size = Math.floor(count)
+
+  // 아직 목록 밖이면 첫 항목으로 들어온다. 어느 방향이든 같은 자리인 것은
+  // 고리에 시작점이 하나뿐이기 때문이다 — 등록부의 첫 항목이 그 자리다.
+  if (current === null || !Number.isFinite(current)) return 0
+
+  // 지금 자리가 범위 밖이어도(항목이 줄었거나 애초에 없던 자리) 고리 위로
+  // 되접어 실재하는 항목에서 다시 센다. 초점이 사라진 자리에 남지 않는다.
+  const from = ((Math.floor(current) % size) + size) % size
+  const step = direction === 'next' ? 1 : -1
+  return (from + step + size) % size
 }

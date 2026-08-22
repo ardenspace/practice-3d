@@ -4,7 +4,7 @@
 저장소에서 직접 읽는다. 정책은 `.talpi/conventions.md` 에 있다.
 
 path: src/keys/keyNav.ts
-is: 키 해석 계층. `keyIntent(key)`, `activeItemList(surface)`, `interceptsKey(surface, key)`, `moveCursor(current, count, direction)`. 방울·3D·씬을 모르고 항목 개수와 현재 위치만 안다(B2, Requirement 47). 씬 폴더 밖에 있는 것이 규약이다. 스텝 1 시점에는 공개 표면만 있고 판정은 비어 있다.
+is: 키 해석 계층. `keyIntent(key)`, `activeItemList(surface)`, `interceptsKey(surface, key)`, `moveCursor(current, count, direction)`. 방울·3D·씬을 모르고 항목 개수와 현재 위치만 안다(B2, Requirement 47). 씬 폴더 밖에 있는 것이 규약이다. 상태를 전혀 들지 않는다. 초점이 없을 때 방향키가 들어가는 자리는 인덱스 0 이고, 스페이스는 뜻이 없되(`keyIntent(' ')` 은 `null`) `interceptsKey` 는 참이라 홈과 목록에서 삼켜진다. Enter·Escape 는 가로채지 않는다 — 배선은 "가로챌지"를 `interceptsKey` 로, "무엇을 할지"를 `keyIntent` 로 따로 물어야 한다.
 phase: 3
 
 path: src/keys/keyNav.test.ts
