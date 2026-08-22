@@ -19,7 +19,10 @@
   (`COLOR_SLIDE_SURFACE/EDGE/SHADOW`, `COLOR_CARD_SURFACE/EDGE`),
   `SLIDE_ENTER_ANIMATION`, `WORKS_OPEN_LABEL`('작품 목록 열기' — 아이콘의
   접근 가능한 이름), `WORKS_DISMISS_TESTID`, 층 순서 토큰 `Z_ABOVE_SCENE`·
-  `Z_SLIDE` — 이상 phase 1 에서 추가.
+  `Z_SLIDE` — 이상 phase 1 에서 추가. `SCENE_FALLBACK_NOTICE`(Requirement 36
+  의 안내 문구를 사람이 정한 문장 그대로, phase 2 에서 추가. 계약 테스트가
+  리터럴과 대조하는 드리프트 가드를 두었으므로 문구를 고치면 시끄럽게
+  실패한다).
   `BACK_TO_HOME_LABEL`, 전환 애니메이션 축약값
   `PAGE_ENTER_ANIMATION`/`HINT_ENTER_ANIMATION`(keyframes 와 CSS 변수
   정의는 `src/index.css`, 인라인 style 은 이 상수로만 참조).
@@ -142,6 +145,17 @@
   `/works` 가 목록 표면에 닿는다는 것과 `/` 가 그렇지 않다는 것을
   `WORKS_TESTID` 로 핀했다. 자식 경로가 어긋나면 catch-all 로 조용히 새어
   홈이 뜨는 것을 잡는다.
+
+- `src/scene/Home.test.tsx` — phase 2 스텝 1 에서 B4 계약 테스트 10 개로
+  갈아탔다. 옛 B4 테스트 2 개(폴백이 배경·제목·작품 링크를 직접 그린다고
+  핀하던 것)는 Requirement 39 와 정면으로 충돌해 후속 계약으로 교체했다.
+  핀하는 것: 씬 불가 시 `/works` 로 갈아치기, 타이머를 돌리지 않은 시점에
+  이미 옮겨져 있을 것(중간 화면·지연 이동 금지), `historyAction` 이
+  `REPLACE` 일 것, 작품 페이지의 홈 링크를 실제로 눌러 `/` 를 거친 뒤
+  뒤로가기가 작품 페이지로 돌아갈 것, 안내 문구가 붙는 경우와 안 붙는 경우,
+  사이트의 모든 화면에서 `/works/<slug>` 링크가 목록 표면 안에만 있을 것.
+  실행 중 컨텍스트 상실과 뒤늦은 복구는 씬이 떠 있어야 일어나는 사건이라
+  jsdom 에서 핀하지 못했다.
 
 ## 테스트 기반
 
