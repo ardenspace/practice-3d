@@ -1,4 +1,4 @@
 run_status: building
-current_phase: 2
+current_phase: 3
 phases_total: 4
-updated: 2026-08-22T08:41:45Z
+updated: 2026-08-22T09:34:51Z
