@@ -6,9 +6,11 @@ import {
   Color,
   Group,
   Mesh,
+  DoubleSide,
   MeshBasicMaterial,
   PlaneGeometry,
   PointsMaterial,
+  RingGeometry,
   ShaderMaterial,
   SphereGeometry,
   SRGBColorSpace,
@@ -19,6 +21,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import {
   COLOR_ACCENT_CYAN,
   COLOR_ACCENT_PINK,
+  COLOR_FOCUS_RING,
   COLOR_NEBULA_PURPLE,
   LONG_PRESS_MS,
 } from '../theme.ts'
@@ -47,6 +50,12 @@ import {
   DEPTH_SWAY_FREQ_RATIO,
   DRIFT_SPEED_MAX,
   DRIFT_SPEED_MIN,
+  FOCUS_RING_FADE_DAMP,
+  FOCUS_RING_INNER_RATIO,
+  FOCUS_RING_OPACITY,
+  FOCUS_RING_OUTER_RATIO,
+  FOCUS_RING_SCALE_FROM,
+  FOCUS_RING_SEGMENTS,
   HOVER_PAUSE_DAMP,
   HOVER_SCALE_DAMP,
   OBJET_FADE_DAMP,
@@ -133,6 +142,14 @@ import {
 // 누르기 해제가 팝으로 샌다. 마우스는 pointerType 분기로 기존 호버/클릭
 // 경로 그대로다.
 //
+// 키보드 (Requirements 1·7–10): 초점은 씬 안이 아니라 DOM 쪽 정거장 하나가
+// 들고 있고(Home), 씬은 "지금 몇 번째 작품 방울에 서 있는가"(focusedIndex)와
+// "엔터가 어느 자리를 터뜨려 달라고 했는가"(popRequest)만 받는다. 초점이 간
+// 작품 방울은 호버와 같은 상태가 되고(정지+확대+오브제) 그 위에 호버에는
+// 없는 초점 표시 고리(FocusRing)가 더 붙는다. 장식 방울은 focusedIndex가
+// 닿지 않으므로 초점 대상이 아니고 고리도 만들지 않는다. 엔터의 터짐은
+// 클릭·탭과 같은 문(startPop)으로 들어간다.
+//
 // 모션 축소 (prefers-reduced-motion, 감지는 reducedMotion.ts — 라이브):
 // - 드리프트/흔들림/자전의 시간 진행에 REDUCED_MOTION_TIME_SCALE(0)을
 //   곱해 필드를 정지시킨다. 쉬머(uTime)는 실제 시간이라 계속 흘러 씬이
@@ -145,8 +162,23 @@ import {
 // - 장식 방울 리스폰: 정지 필드에서는 화면 아래 경계 스폰이 영영 안
 //   보이므로, 축소 모드에서는 시드 랜덤 위치(필드 안)에 바로 나타난다.
 
+// 한 파일로 두는 이유 (conventions: 300줄 검토 신호): 여기 있는 것은
+// 전부 "방울 하나가 매 프레임 어떻게 보이는가"의 서로 다른 층이고 — 모션,
+// 재질, 호버·초점 상태, 터짐 — 하나를 떼면 나머지가 그 층의 상태(로컬시간,
+// scaleRef, popPhase)를 밖으로 내보내야 한다. 실제로 떼어낼 수 있었던
+// 것들은 이미 나가 있다: 판정은 touch.ts·reducedMotion.ts, 방울 목록은
+// bubbles.ts, 매직 넘버는 constants.ts, 키 해석은 keys/.
+
 // 오브제 평면 공유 지오메트리 (단위 정사각형, 크기는 mesh scale).
 const objetGeometry = new PlaneGeometry(1, 1)
+
+// 키보드 초점 표시 고리의 공유 지오메트리 (방울 반지름 배수로 재는 납작한
+// 고리, 실제 크기는 mesh scale). 비율이 상수라 방울마다 새로 만들 이유가 없다.
+const focusRingGeometry = new RingGeometry(
+  FOCUS_RING_INNER_RATIO,
+  FOCUS_RING_OUTER_RATIO,
+  FOCUS_RING_SEGMENTS,
+)
 
 // 프레임레이트 독립 지수 감쇠 (수동 damp — 외부 라이브러리 없이).
 function dampTo(
@@ -436,6 +468,68 @@ function PopBurst({ center, radius, onDone }: PopBurstProps) {
   )
 }
 
+// ── 초점 표시 (FocusRing) ──
+// 키보드 초점이 간 작품 방울에만 붙는 고리 (Requirement 8). 초점이 간
+// 방울은 호버와 똑같이 멈추고 커지고 오브제를 드러내므로(Requirement 7),
+// 호버와 초점이 서로 다른 방울에 동시에 있을 때 둘을 갈라 보이게 하는 것은
+// 이 고리 하나뿐이다 (Requirement 9).
+//
+// 방울 group의 자식이라 호버/초점 확대를 그대로 따라가고, 방울이 터지면
+// (서브트리가 통째로 파티클로 바뀐다) 고리도 함께 사라진다 — 초점 표시가
+// 사라진 방울 자리에 남지 않는다.
+//
+// 나타날 때만 바깥에서 조여들며 페이드 인한다. 새로 생기는 움직임이므로
+// prefers-reduced-motion을 거친다 (Requirement 45) — 축소 모드에서는
+// REDUCED_MOTION_DAMP로 사실상 즉시 켜지고 꺼진다. 계속 도는 맥동은 두지
+// 않는다: 정지 필드에서 혼자 뛰는 것을 만들지 않기 위해서다.
+function FocusRing({ radius, focused }: { radius: number; focused: boolean }) {
+  const meshRef = useRef<Mesh>(null)
+  const revealRef = useRef(0)
+
+  const material = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        color: COLOR_FOCUS_RING,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        toneMapped: false,
+        side: DoubleSide,
+      }),
+    [],
+  )
+
+  useEffect(() => () => material.dispose(), [material])
+
+  useFrame((_, delta) => {
+    const mesh = meshRef.current
+    if (!mesh) return
+    revealRef.current = dampTo(
+      revealRef.current,
+      focused ? 1 : 0,
+      prefersReducedMotion() ? REDUCED_MOTION_DAMP : FOCUS_RING_FADE_DAMP,
+      delta,
+    )
+    material.opacity = revealRef.current * FOCUS_RING_OPACITY
+    mesh.scale.setScalar(
+      radius * lerp(FOCUS_RING_SCALE_FROM, 1, revealRef.current),
+    )
+    mesh.visible = revealRef.current > OBJET_VISIBLE_EPSILON
+  })
+
+  return (
+    <mesh
+      ref={meshRef}
+      geometry={focusRingGeometry}
+      material={material}
+      visible={false}
+      // 고리는 표시일 뿐 만질 것이 아니다 — 방울의 포인터 이벤트를 가리지
+      // 않도록 레이캐스트 제외 (오브제 평면과 같은 규율).
+      raycast={() => null}
+    />
+  )
+}
+
 // 방울 하나의 모션 파라미터 — 마운트 시 한 번 뽑고 이후 불변.
 // (호버 스텝이 "정지/확대" 상태를 얹을 때도 이 베이스는 그대로 둔다.)
 interface BubbleMotion {
@@ -479,15 +573,28 @@ interface BubbleProps {
   radius: number
   motion: BubbleMotion
   rimAlpha: number
+  /**
+   * 키보드 초점이 이 방울에 있는가. undefined면 초점을 받을 수 있는 방울이
+   * 아니라는 뜻이고(장식 방울 — Requirement 1), 그때는 초점 표시 고리도
+   * 아예 만들지 않는다.
+   */
+  focused?: boolean
+  /**
+   * 씬 밖(DOM의 엔터)에서 이 방울을 터뜨려 달라는 요청. false→true로
+   * 바뀌는 순간 한 번 터진다 — 요청을 받은 쪽이 곧바로 되돌려 놓으므로
+   * (BubbleField의 onPopHandled) 한 번의 엔터가 한 번의 터짐이 된다.
+   */
+  popRequested?: boolean
   /** 클릭으로 터짐이 시작되는 순간 호출 (작품 방울: 내비게이션 예약). */
   onPop?: () => void
   /** 파티클까지 끝나 방울이 완전히 사라진 뒤 호출 (장식 방울: 리스폰 예약). */
   onPopFinished?: () => void
   /**
-   * 오브제 등 방울과 함께 움직일 자식 (group 좌표계). 호버 상태를 받아
-   * 렌더하는 함수 — 작품 방울의 오브제 공개가 이 인자로 구동된다.
+   * 오브제 등 방울과 함께 움직일 자식 (group 좌표계). 방울이 "붙잡힌"
+   * 상태(호버이거나 키보드 초점)를 받아 렌더하는 함수 — 작품 방울의 오브제
+   * 공개가 이 인자로 구동된다.
    */
-  children?: (hovered: boolean) => ReactNode
+  children?: (engaged: boolean) => ReactNode
 }
 
 function Bubble({
@@ -495,6 +602,8 @@ function Bubble({
   radius,
   motion,
   rimAlpha,
+  focused,
+  popRequested,
   onPop,
   onPopFinished,
   children,
@@ -531,7 +640,15 @@ function Bubble({
   // 누른 채로 언마운트(터짐/폴백 전환)되면 길게 누르기 타이머 해제.
   useEffect(() => clearTouch, [])
 
+  // 마우스 커서만은 호버에만 반응한다 — 키보드로 초점을 옮긴다고 해서
+  // 방문자가 만지지도 않은 커서 모양이 바뀔 이유가 없다.
   useHoverCursor(hovered)
+
+  // 붙잡힌 상태 — 호버이거나 키보드 초점 (Requirement 7: 초점이 간 방울은
+  // 마우스 호버와 같은 상태가 된다). 아래의 정지·확대·오브제 공개는 전부
+  // 이 하나를 본다. 호버와 초점은 서로 다른 방울에 동시에 있을 수 있고
+  // (Requirement 9) 각 방울이 자기 것만 보므로 둘 다 붙잡힌다.
+  const engaged = hovered || focused === true
 
   // 사람이 모델링한 glb 방울 지오메트리 (준비 전엔 폴백 구).
   const bubbleGeometry = useBubbleGeometry()
@@ -573,11 +690,11 @@ function Bubble({
     // 모션 축소 (라이브 — OS 설정 변경이 다음 프레임부터 반영).
     const reducedMotion = prefersReducedMotion()
 
-    // 호버 → 속도가 0으로 감쇠(감속 정지), 해제 → 1로 복귀(재가속).
-    // 위치는 로컬시간의 함수이므로 멈춘 자리에서 그대로 이어진다.
+    // 붙잡힘(호버 또는 초점) → 속도가 0으로 감쇠(감속 정지), 해제 → 1로
+    // 복귀(재가속). 위치는 로컬시간의 함수이므로 멈춘 자리에서 이어진다.
     speedRef.current = dampTo(
       speedRef.current,
-      hovered ? 0 : 1,
+      engaged ? 0 : 1,
       HOVER_PAUSE_DAMP,
       delta,
     )
@@ -607,7 +724,7 @@ function Bubble({
     // 축소 모드에서도 확대 자체는 유지(기능적 피드백)하되 사실상 즉시.
     scaleRef.current = dampTo(
       scaleRef.current,
-      hovered ? BUBBLE_HOVER_SCALE : 1,
+      engaged ? BUBBLE_HOVER_SCALE : 1,
       reducedMotion ? REDUCED_MOTION_DAMP : HOVER_SCALE_DAMP,
       delta,
     )
@@ -656,6 +773,16 @@ function Bubble({
     setPopPhase('burst')
     onPop?.()
   }
+
+  // 씬 밖에서 온 터짐 요청 (키보드 엔터 — Requirement 10). 클릭·탭과 같은
+  // 문(startPop)으로 들어오므로 터짐 연출도 내비게이션 예약도 한 벌이다.
+  // 최신 startPop을 ref로 부르는 것은 PopBurst의 onDone과 같은 규율이다 —
+  // 이 effect가 봐야 하는 변화는 요청 하나뿐이다.
+  const startPopRef = useRef(startPop)
+  startPopRef.current = startPop
+  useEffect(() => {
+    if (popRequested) startPopRef.current()
+  }, [popRequested])
 
   // 모션 축소 팝: 파티클 없이 방울만 즉시 사라진다(아래 렌더에서 null).
   // gone 전환·onPopFinished는 파티클 수명과 같은 시각 — 내비게이션 딜레이
@@ -758,7 +885,9 @@ function Bubble({
         onPointerCancel={handlePointerCancel}
         onClick={handleClick}
       />
-      {children?.(hovered)}
+      {/* 초점을 받을 수 있는 방울만 고리를 갖는다 (Requirement 1). */}
+      {focused !== undefined && <FocusRing radius={radius} focused={focused} />}
+      {children?.(engaged)}
     </group>
   )
 }
@@ -867,6 +996,10 @@ interface WorkBubbleViewProps {
   bubble: WorkBubble
   index: number
   total: number
+  /** 키보드 초점이 이 방울에 있는가 (Requirements 7·8). */
+  focused: boolean
+  /** 엔터가 이 방울을 터뜨려 달라고 했는가 (Requirement 10). */
+  popRequested: boolean
   /** 터짐 연출 후 작품 페이지를 열 콜백 (slug 전달) — Home이 주입. */
   onWorkOpen?: (slug: string) => void
 }
@@ -875,7 +1008,14 @@ interface WorkBubbleViewProps {
 // 오브제 공개는 Bubble의 함수 자식으로 구동. 클릭(Requirement 5): 터짐이
 // 시작되면 POP_NAVIGATE_DELAY_MS 뒤 onWorkOpen(slug) — 사용자가 터지는
 // 순간을 본 다음 페이지가 전환된다. slug는 항상 entry에서 (하드코딩 금지).
-function WorkBubbleView({ bubble, index, total, onWorkOpen }: WorkBubbleViewProps) {
+function WorkBubbleView({
+  bubble,
+  index,
+  total,
+  focused,
+  popRequested,
+  onWorkOpen,
+}: WorkBubbleViewProps) {
   const navigateTimerRef = useRef<number | undefined>(undefined)
   // 내비게이션 전에 다른 이유(WebGL 상실 폴백 등)로 언마운트되면 예약 취소.
   useEffect(() => () => window.clearTimeout(navigateTimerRef.current), [])
@@ -907,13 +1047,15 @@ function WorkBubbleView({ bubble, index, total, onWorkOpen }: WorkBubbleViewProp
       radius={WORK_BUBBLE_RADIUS}
       motion={motion}
       rimAlpha={WORK_RIM_ALPHA}
+      focused={focused}
+      popRequested={popRequested}
       onPop={handlePop}
     >
-      {(hovered) => (
+      {(engaged) => (
         <BubbleObjet
           src={bubble.entry.object.src}
           bubbleRadius={WORK_BUBBLE_RADIUS}
-          hovered={hovered}
+          hovered={engaged}
         />
       )}
     </Bubble>
@@ -976,11 +1118,38 @@ interface BubbleFieldProps {
    * 리컨실러 내부에서 라우터 훅을 직접 쓰지 않는다.
    */
   onWorkOpen?: (slug: string) => void
+  /**
+   * 키보드 초점이 놓인 작품 방울의 자리 (없으면 null). 자리 번호는 파생
+   * 목록의 순서, 곧 등록부의 순서다 (Requirement 3). 초점 상태를 씬이 들지
+   * 않는 이유는 키보드의 정거장이 DOM에 있기 때문이다 — 씬은 지금 어디에
+   * 서 있는지를 받아 그리기만 한다.
+   */
+  focusedIndex?: number | null
+  /**
+   * 엔터가 터뜨려 달라고 지목한 자리 (없으면 null). 씬이 받아 처리한 뒤
+   * onPopHandled로 곧바로 되돌려 놓으므로 한 번의 엔터는 한 번만 터진다.
+   */
+  popRequest?: number | null
+  /** popRequest를 소비했다 — 요청을 내려놓으라는 신호. */
+  onPopHandled?: () => void
 }
 
-export default function BubbleField({ onWorkOpen }: BubbleFieldProps) {
+export default function BubbleField({
+  onWorkOpen,
+  focusedIndex = null,
+  popRequest = null,
+  onPopHandled,
+}: BubbleFieldProps) {
   // B1 씬 보장의 소비 지점: 등록부가 아니라 파생 목록에서 방울을 만든다.
   const workBubbles = useMemo(() => deriveWorkBubbles(works), [])
+
+  // 요청은 받는 즉시 내려놓는다. 자식(방울)의 effect가 부모보다 먼저 도는
+  // React 규칙 덕분에 터짐이 이미 시작된 뒤에 내려놓게 된다. 지목된 자리에
+  // 방울이 없어도(등록부가 비었거나 이미 터진 자리) 요청은 사라진다 —
+  // 남아 있는 요청이 뒤늦게 엉뚱한 방울에 떨어지지 않도록.
+  useEffect(() => {
+    if (popRequest !== null) onPopHandled?.()
+  }, [popRequest, onPopHandled])
 
   return (
     <>
@@ -990,6 +1159,8 @@ export default function BubbleField({ onWorkOpen }: BubbleFieldProps) {
           bubble={bubble}
           index={index}
           total={workBubbles.length}
+          focused={index === focusedIndex}
+          popRequested={index === popRequest}
           onWorkOpen={onWorkOpen}
         />
       ))}

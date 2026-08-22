@@ -7,6 +7,10 @@ path: src/keys/keyNav.ts
 is: 키 해석 계층. `keyIntent(key)`, `activeItemList(surface)`, `interceptsKey(surface, key)`, `moveCursor(current, count, direction)`. 방울·3D·씬을 모르고 항목 개수와 현재 위치만 안다(B2, Requirement 47). 씬 폴더 밖에 있는 것이 규약이다. 상태를 전혀 들지 않는다. 초점이 없을 때 방향키가 들어가는 자리는 인덱스 0 이고, 스페이스는 뜻이 없되(`keyIntent(' ')` 은 `null`) `interceptsKey` 는 참이라 홈과 목록에서 삼켜진다. Enter·Escape 는 가로채지 않는다 — 배선은 "가로챌지"를 `interceptsKey` 로, "무엇을 할지"를 `keyIntent` 로 따로 물어야 한다.
 phase: 3
 
+path: src/keys/useSceneKeyNav.ts
+is: 씬이 뜬 홈의 키 배선. `keyNav` 의 판정을 `window` keydown 하나에 잇는다. 판정은 전부 `keyNav` 가 하고 여기는 상태를 읽고 바꿔 줄 뿐이다. 리스너를 창에 다는 근거는 Ledger 의 "홈에서 방향키를 페이지 전체에서 가로챈다"이다. `keyNav` 가 모르는 이벤트 타깃 판별(`usesKeysItself`)이 여기 있다. `focusedByKeyboard(element)`(브라우저의 `:focus-visible` 판정)도 함께 export 한다.
+phase: 3
+
 path: src/keys/keyNav.test.ts
 is: B2 가운데 화면 없이 정해지는 전부를 핀한다 — 키의 뜻, 활성 항목 목록, 가로채기 술어, 순회 순서와 순환. 렌더 한 줄 없다.
 phase: 3
@@ -68,12 +72,16 @@ is: 토큰·문구 모듈. 사용자 노출 문구와 색상, 테스트 표식, 
 phase: prev-run (1·2 에서 추가)
 
 path: src/scene/Home.tsx
-is: 홈 씬 호스트이자 `/` 와 `/works` 가 공유하는 셸. 목록이 열렸는지는 `useOutlet()` 으로 안다. 열린 동안 캔버스 층에 `inert`+`aria-hidden`+`pointerEvents:none` 을 걸되 언마운트하지 않는다. 씬 불가·실행 중 상실은 `decideSceneFallback` 의 판정을 배선만 한다.
-phase: prev-run (1·2 에서 개편)
+is: 홈 씬 호스트이자 `/` 와 `/works` 가 공유하는 셸. 목록이 열렸는지는 `useOutlet()` 으로 안다. 열린 동안 캔버스 층에 `inert`+`aria-hidden`+`pointerEvents:none` 을 걸되 언마운트하지 않는다. 씬 불가·실행 중 상실은 `decideSceneFallback` 의 판정을 배선만 한다. 캔버스 층이 곧 씬의 초점 정거장이다(`tabIndex`, `outline:none`). 커서·정거장 초점 여부·엔터 요청 세 상태를 들고 `BubbleField` 에 내려보낸다. 탭 순서는 DOM 순서 그대로 씬 → 아이콘 → 페이지 밖이고 고리를 만들지 않는다. 빈 등록부에서는 정거장을 두지 않는다.
+phase: prev-run (1·2 에서 개편, 3 에서 초점 정거장)
 
 path: src/scene/Home.test.tsx
 is: B4 계약 테스트 10 개. 씬 불가 시 `/works` 갈아치기, 중간 화면 없음, `historyAction === REPLACE`, 안내 문구의 두 경우, 작품 링크가 목록 표면 안에만 있을 것을 핀한다. 실행 중 상실과 뒤늦은 복구는 jsdom 에서 핀하지 못했다.
 phase: prev-run (2 에서 교체)
+
+path: src/scene/BubbleField.tsx
+is: 방울 필드(Canvas 자식 전용). 작품 방울과 장식 방울, 공용 `Bubble`, 호버 상태, 팝 단계, 터치 배선. phase 3 에서 `focusedIndex`·`popRequest`·`onPopHandled` 를 받는다. 정지·확대·오브제 공개는 `engaged = hovered || focused` 하나를 보고, 초점에만 붙는 고리는 `FocusRing` 이 그린다. 엔터의 터짐은 클릭·탭과 같은 문(`startPop`)으로 들어간다. 고리는 방울 group 의 자식이라 방울이 터지면 함께 사라진다.
+phase: prev-run (3 에서 초점 배선)
 
 path: src/routes.tsx
 is: 라우팅 표면의 단일 진실 `routes: RouteObject[]`. 작품 라우트는 등록부에서 파생된다. `/works` 는 `/` 의 자식이라 이동해도 Canvas 가 재마운트되지 않는다. catch-all 은 `REDIRECTED_HERE_STATE` 를 실어 `/` 로 보낸다.

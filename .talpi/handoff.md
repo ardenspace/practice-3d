@@ -126,6 +126,8 @@ B1·B2·B3 를 실패하는 테스트로 핀하는 일이다.
 
 ## Gotchas
 
+- **`src/keys/useSceneKeyNav.ts` 의 `focusedByKeyboard(element)` 는 브라우저의
+  `:focus-visible` 판정이다.** 스텝 4 가 목록에서도 재사용할 만하다.
 - **`keyNav` 는 이벤트 타깃을 모른다.** 목록 안에 버튼 같은 요소가 생기면
   스페이스 `preventDefault` 가 그 요소의 표준 동작을 가로챌 수 있으므로,
   타깃 판별은 리스너를 다는 쪽이 해야 한다. 지금 `WorksList` 카드는 `<a>` 라

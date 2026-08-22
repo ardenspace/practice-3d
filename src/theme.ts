@@ -104,6 +104,12 @@ export const COLOR_ACCENT_PINK = '#ff8ad4'
 export const COLOR_ACCENT_CYAN = '#8ae2ff'
 export const COLOR_TEXT = '#f2eefb'
 
+// 키보드 초점 표시의 색 (Requirement 8) — 초점이 간 작품 방울에만 붙는
+// 고리다. 방울의 림은 핑크/시안/보라가 흐르는 무지갯빛이라 그 안의 색을
+// 쓰면 "지금 여기 서 있다"가 쉬머에 묻힌다. 흔들리지 않는 흰빛 하나만
+// 우주 무드 밖에서 빌려 오지 않고 가장 밝은 자리로 끌어올려 쓴다.
+export const COLOR_FOCUS_RING = '#ffffff'
+
 // 작품 목록 슬라이드의 색 (B5) — 같은 우주 무드 안. 뒤의 방울이 비쳐야
 // 하므로 반투명 유리면이고, 가장자리는 성운 보라의 옅은 선이다.
 // 씬 폴백 안내 띠(B4)도 화면 위에 얹히는 같은 유리면이라 이 값을 나눠 쓴다.

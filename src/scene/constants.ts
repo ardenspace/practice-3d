@@ -69,6 +69,20 @@ export const REDUCED_MOTION_TIME_SCALE = 0
 // (사용자 주도 피드백은 유지하되 애니메이션은 최소화).
 export const REDUCED_MOTION_DAMP = 30
 
+// ── 키보드 초점 표시 (Requirement 8, 생김새는 Delegated) ──
+// 초점이 간 작품 방울을 감싸는 납작한 고리. 방울 반지름 배수로 두어
+// 호버/초점 확대(BUBBLE_HOVER_SCALE)를 그대로 따라간다 — 고리는 방울
+// group의 자식이라 함께 커진다. 비율이 1보다 크므로 고리는 방울 실루엣
+// 바깥에 그려지고 무지갯빛 림과 겹치지 않는다.
+export const FOCUS_RING_INNER_RATIO = 1.12
+export const FOCUS_RING_OUTER_RATIO = 1.22
+export const FOCUS_RING_SEGMENTS = 64
+export const FOCUS_RING_OPACITY = 0.92
+// 나타날 때 바깥에서 조여드는 시작 배율 + 페이드/조임 스무딩 λ.
+// (모션 축소면 REDUCED_MOTION_DAMP로 바뀌어 사실상 즉시 — Requirement 45.)
+export const FOCUS_RING_SCALE_FROM = 1.35
+export const FOCUS_RING_FADE_DAMP = 14
+
 // ── 터짐 (클릭 팝 — Requirements 5–6, 파티클/연출은 Delegated) ──
 // 파티클은 방울 표면에서 바깥으로 튀는 무지갯빛 물방울 조각 (Points 1드로).
 export const POP_PARTICLE_COUNT = 28 // 방울 하나가 터질 때 조각 수

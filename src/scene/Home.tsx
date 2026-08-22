@@ -1,5 +1,13 @@
 import { Canvas } from '@react-three/fiber'
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FocusEvent,
+} from 'react'
 import { useLocation, useNavigate, useOutlet } from 'react-router'
 import type { WebGLRenderer } from 'three'
 import {
@@ -9,8 +17,9 @@ import {
   siteTitleStyle,
 } from '../siteStyles.ts'
 import ErrorBoundary from '../ErrorBoundary.tsx'
+import { focusedByKeyboard, useSceneKeyNav } from '../keys/useSceneKeyNav.ts'
 import { decideListClose } from '../works/listClose.ts'
-import { WORKS_PATH, workPath } from '../works/registry.ts'
+import { WORKS_PATH, workPath, works } from '../works/registry.ts'
 import {
   focusWorksList,
   planWorksFocusHandoff,
@@ -34,6 +43,7 @@ import {
   Z_ABOVE_SCENE,
 } from '../theme.ts'
 import BubbleField from './BubbleField.tsx'
+import { deriveWorkBubbles } from './bubbles.ts'
 import {
   AMBIENT_LIGHT_INTENSITY,
   CAMERA_FOV,
@@ -67,6 +77,19 @@ import { decideSceneFallback, wasRedirectedHere } from './sceneFallback.ts'
 //   않는다 (B4). 씬이 실제로 뜨는 환경이 있어야 일어나는 사건이라 jsdom에서
 //   재현할 수 없고, 화면 없이 확인할 수 있는 규칙 부분은 decideSceneFallback에
 //   모여 있다.
+// - 씬의 키보드 초점 정거장을 든다 (B2). 씬은 방울 N개짜리 그림이지만
+//   DOM에서는 캔버스 레이어 하나가 초점을 받고, 지금 몇 번째 방울에 서
+//   있는지는 이 셸의 상태다 — Canvas 자식은 별도 리컨실러라 DOM 초점도
+//   라우터도 그 안에 두지 않는다. 키의 뜻을 정하는 일은 keys/keyNav.ts,
+//   그 판정을 창에 이어 붙이는 일은 keys/useSceneKeyNav.ts 몫이고 여기는
+//   상태를 들고 배선만 한다.
+//
+// 한 파일로 두는 이유 (conventions: 300줄 검토 신호): 이 파일이 긴 것은
+// "홈이 무엇이 되는가"의 갈래(씬/폴백/목록 열림)가 하나의 결정이기
+// 때문이다. 갈래를 나눠 담으면 그 결정이 두 곳에 흩어진다. 떼어낼 수
+// 있는 것들은 이미 나가 있다 — 폴백 판정은 sceneFallback.ts, 목록 닫기
+// 판정은 works/listClose.ts, 초점 넘기기는 works/worksFocus.ts, 키 배선은
+// keys/useSceneKeyNav.ts, 스타일 조각은 siteStyles.ts.
 import { isWebGLAvailable } from './webgl.ts'
 
 const rootStyle: CSSProperties = {
@@ -82,6 +105,12 @@ const canvasLayerStyle: CSSProperties = {
   // 않도록 씬 레이어에서만 기본 터치 동작을 끈다 — DOM 오버레이(제목)와
   // 폴백/작품 페이지의 링크에는 영향 없음.
   touchAction: 'none',
+  // 이 레이어가 곧 씬의 초점 정거장이다 (Requirement 11). 브라우저 기본
+  // 초점 테두리는 뷰포트 전체를 두르는 사각형이라 "어느 방울에 서 있는가"를
+  // 말해 주지 못한다 — 그 일은 씬 안의 초점 표시 고리가 맡으므로
+  // (BubbleField의 FocusRing) 여기서는 끈다. 표시를 없애는 것이 아니라
+  // 화면 밖 사각형에서 방울 옆으로 옮기는 것이다.
+  outline: 'none',
 }
 
 // 목록이 열려 있는 동안의 씬 레이어. 방울은 계속 떠다니지만(캔버스는 그대로
@@ -235,6 +264,64 @@ export default function Home() {
     [navigate],
   )
 
+  // ── 씬의 키보드 초점 (B2) ──
+  // 씬은 화면 가득 흩어진 방울 N개짜리 그림이지만 DOM에서는 정거장
+  // 하나다 (Requirement 11): 탭 한 번이면 씬을 지나간다. 그 정거장이
+  // 캔버스 레이어이므로 탭 순서는 DOM 순서 그대로 씬 → 아이콘 → 페이지
+  // 밖이고 (Requirement 12), 안에 고리를 만들지 않으니 정방향으로도
+  // 역방향으로도 페이지를 벗어날 수 있다 (Requirement 13 / Ledger:
+  // "탭은 페이지를 벗어날 수 있어야 한다").
+  const sceneStationRef = useRef<HTMLDivElement>(null)
+
+  // 씬 안에서 몇 번째 작품 방울에 서 있는가. 자리 번호는 씬이 소비하는
+  // 파생 목록의 순서, 곧 등록부의 순서다 (Requirement 3).
+  const [sceneCursor, setSceneCursor] = useState<number | null>(null)
+  // 정거장이 지금 DOM 초점을 들고 있는가. 커서와 따로 두는 이유는 초점이
+  // 아이콘으로 넘어가면 씬의 초점 표시는 사라져야 하지만(초점은 한 곳이다)
+  // 돌아왔을 때 서 있던 자리는 그대로여야 하기 때문이다.
+  const [sceneFocused, setSceneFocused] = useState(false)
+  // 엔터가 터뜨려 달라고 지목한 자리. 씬이 받아 처리하면 곧바로 비운다 —
+  // 한 번의 엔터가 두 번 발동하지 않는다 (Requirement 10).
+  const [popRequest, setPopRequest] = useState<number | null>(null)
+
+  // 씬이 가진 정거장 안의 자리 수. 씬과 같은 파생을 거친다 — 등록부를
+  // 직접 세면 "등록 항목 N개 = 작품 방울 N개"가 두 곳에서 따로 참이
+  // 되어야 한다.
+  const workBubbleCount = useMemo(() => deriveWorkBubbles(works).length, [])
+
+  // 씬이 떠 있고 목록이 닫혀 있을 때만 씬이 키를 받는다. 목록이 열린
+  // 동안의 키는 목록 몫이고, 씬 없는 홈의 키는 그 화면인 전체 화면 목록
+  // 몫이다.
+  const sceneKeysActive = fallback.showScene && !worksOpen
+
+  useSceneKeyNav({
+    active: sceneKeysActive,
+    count: workBubbleCount,
+    stationRef: sceneStationRef,
+    cursor: sceneCursor,
+    onCursorChange: setSceneCursor,
+    onEnter: setPopRequest,
+  })
+
+  // 탭으로 들어온 방문자에게도 지금 어디에 서 있는지가 보여야 한다 —
+  // 정거장이 초점을 받았는데 어느 방울에도 표시가 없으면 초점이 사라진
+  // 것처럼 보인다. 그래서 키보드로 들어오는 순간 첫 작품에 선다. 페이지가
+  // 열리는 것만으로는 일어나지 않는다 (Requirement 5의 단서) — 방문자가
+  // 탭이나 방향키를 누른 뒤다.
+  const handleStationFocus = useCallback(
+    (event: FocusEvent<HTMLDivElement>) => {
+      setSceneFocused(true)
+      if (!focusedByKeyboard(event.currentTarget)) return
+      setSceneCursor((current) =>
+        current === null && workBubbleCount > 0 ? 0 : current,
+      )
+    },
+    [workBubbleCount],
+  )
+
+  const handleStationBlur = useCallback(() => setSceneFocused(false), [])
+  const handlePopHandled = useCallback(() => setPopRequest(null), [])
+
   // 실행 중에 씬이 무너졌다. 컨텍스트 상실과 마운트 실패가 같은 문 하나로
   // 들어온다 — 방문자가 겪는 일이 같기 때문이다: 방금까지 보고 있던 씬 셸이
   // 통째로 사라지고 화면이 작품 목록이 된다.
@@ -313,7 +400,15 @@ export default function Home() {
           (Requirement 16). 닫히면 그대로 다시 살아난다 (Requirement 19) —
           캔버스는 언마운트되지 않으므로 씬이 처음부터 다시 뜨지 않는다. */}
       <div
+        ref={sceneStationRef}
         style={worksOpen ? lockedCanvasLayerStyle : canvasLayerStyle}
+        // 씬 전체가 정거장 하나 (Requirement 11) — 방울이 몇 개든 탭 한
+        // 번으로 지나간다. 순회할 작품이 하나도 없으면(빈 등록부) 서 있을
+        // 자리가 없으므로 정거장도 두지 않는다: 초점만 받고 아무 표시도
+        // 없는 자리를 만들지 않기 위해서다 (Requirement 29와 같은 뜻).
+        tabIndex={workBubbleCount > 0 ? 0 : -1}
+        onFocus={handleStationFocus}
+        onBlur={handleStationBlur}
         inert={worksOpen}
         aria-hidden={worksOpen || undefined}
       >
@@ -340,7 +435,18 @@ export default function Home() {
               color={COLOR_ACCENT_CYAN}
               intensity={POINT_LIGHT_INTENSITY}
             />
-            <BubbleField onWorkOpen={handleWorkOpen} />
+            {/* 초점은 씬이 아니라 이 셸이 든다 — 씬은 지금 어디에 서
+                있는지와 무엇을 터뜨릴지를 받아 그리기만 한다. 정거장이
+                초점을 놓았거나(아이콘으로 넘어감) 목록이 열려 씬이 잠긴
+                동안에는 초점 표시도 함께 사라진다. */}
+            <BubbleField
+              onWorkOpen={handleWorkOpen}
+              focusedIndex={
+                sceneKeysActive && sceneFocused ? sceneCursor : null
+              }
+              popRequest={popRequest}
+              onPopHandled={handlePopHandled}
+            />
           </Canvas>
         </ErrorBoundary>
       </div>
