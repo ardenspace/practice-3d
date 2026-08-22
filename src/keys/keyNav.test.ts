@@ -4,6 +4,8 @@ import {
   interceptsKey,
   keyIntent,
   moveCursor,
+  ownsChord,
+  type KeyModifiers,
   type KeySurface,
   type MoveDirection,
 } from './keyNav.ts'
@@ -64,6 +66,38 @@ describe('B2: 키의 뜻은 사이트 전체에서 하나다', () => {
     for (const key of ['a', 'Home', 'PageDown', 'F5', 'Backspace']) {
       expect(keyIntent(key), `${key}는 이 계층의 키가 아니다`).toBeNull()
     }
+  })
+})
+
+describe('B2: ⌘·Ctrl·Alt 조합은 이 계층의 키가 아니다', () => {
+  // 이 판정은 원래 세 배선(씬·목록·작품 페이지)에 똑같이 세 번 적혀 있었다.
+  // 한 자리로 모았으므로 여기가 그 하나를 핀한다 — 조합이 눌린 방향키의 뜻이
+  // 화면마다 달라지면 방문자가 ⌘←(뒤로 가기)를 화면 하나에서만 잃는다.
+  it('아무 조합도 눌리지 않았으면 우리 것이다', () => {
+    expect(ownsChord({})).toBe(true)
+    expect(
+      ownsChord({ metaKey: false, ctrlKey: false, altKey: false }),
+    ).toBe(true)
+  })
+
+  it('⌘·Ctrl·Alt 가운데 하나라도 눌려 있으면 우리 것이 아니다', () => {
+    for (const held of ['metaKey', 'ctrlKey', 'altKey'] as const) {
+      expect(ownsChord({ [held]: true }), `${held}는 방문자의 것이다`).toBe(
+        false,
+      )
+    }
+    expect(
+      ownsChord({ metaKey: true, ctrlKey: true, altKey: true }),
+      '겹쳐 눌려도 마찬가지다',
+    ).toBe(false)
+  })
+
+  it('Shift는 조합으로 치지 않는다 — 역방향 탭이 정상적인 조작이다', () => {
+    // Shift를 조합에 넣으면 슬라이드의 탭 고리가 한쪽 방향으로만 돈다
+    // (Requirement 17). 이벤트에는 shiftKey가 함께 실려 오므로, 실려 와도
+    // 판정이 달라지지 않는다는 것까지 본다.
+    const shiftHeld: KeyModifiers & { shiftKey: boolean } = { shiftKey: true }
+    expect(ownsChord(shiftHeld)).toBe(true)
   })
 })
 

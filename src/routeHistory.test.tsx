@@ -29,7 +29,9 @@ import WorksOpenIcon from './works/WorksOpenIcon.tsx'
 //   방문자에게는 목록을 닫는 동작 자체가 없다 — 그 사실은
 //   keys/keyboardSurfaces.test.tsx가 확인한다). 되감을지 갈아칠지의 규칙
 //   자체는 화면 없는 works/listClose.ts에 있고 listClose.test.ts가 핀한다.
-//   Esc로 닫는 길이 생겨도 판정을 새로 내리지 말고 그 모듈을 거쳐야 한다.
+//   그 판정을 목록 닫기가 실제로 거치는지 — Esc도 바깥 클릭도 — 는 씬 셸을
+//   대역으로 세워 보는 scene/sceneShell.test.tsx가 끝까지 확인한다.
+//   닫는 길이 하나 더 생겨도 판정을 새로 내리지 말고 그 모듈을 거쳐야 한다.
 // - ④의 목적지 가운데 "씬을 띄울 수 있으면 홈의 그 방울"(Requirement 41)은
 //   씬이 필요하다. 씬 없는 쪽 목적지 — 전체 화면 목록의 그 항목 — 만 본다.
 

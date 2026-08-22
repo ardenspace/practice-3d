@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { type RefObject } from 'react'
 import {
   activeItemList,
   interceptsKey,
@@ -7,17 +7,19 @@ import {
   type KeySurface,
 } from './keyNav.ts'
 import { usesKeysItself } from './keyTargets.ts'
+import { useLayerKeyDown } from './useLayerKeyDown.ts'
 
 // 씬이 뜬 홈에서 키를 실제 DOM에 배선하는 자리. 판정은 전부 keyNav가
 // 하고(순수, 화면 없음) 여기는 그 판정을 창(window)의 keydown 하나에
 // 이어 붙인다 — 초점을 어디에 둘지, 무엇을 터뜨릴지는 호출하는 쪽(Home)이
 // 상태로 들고 있고 이 훅은 그것을 읽고 바꿔 줄 뿐이다.
 //
-// 리스너를 씬 요소가 아니라 창에 다는 이유 (Reversibility Ledger, Decided):
-// 홈에 막 들어온 방문자는 아직 아무것도 초점하지 않았다. 그 상태에서
-// 방향키 하나로 방울이 움직이려면 홈 화면 전체가 방향키를 자기 것으로
-// 써야 한다 (Requirement 5). 대가는 그 항목에 적혀 있다 — 앞으로 홈에
-// 방향키를 자기 것으로 쓰는 요소(스크롤 영역·선택 메뉴)를 둘 수 없다.
+// 창에 이어 붙이는 일 자체(리스너 한 번 달기, 최신 값 읽기, ⌘·Ctrl·Alt
+// 조합 흘려보내기)는 목록·작품 페이지와 똑같으므로 useLayerKeyDown 한 겹이
+// 맡는다. 홈에 막 들어온 방문자가 아직 아무것도 초점하지 않았어도 방향키
+// 하나로 방울이 움직여야 한다는 것(Requirement 5)이 그 자리에 창을 쓰는
+// 이유이고, 대가는 Reversibility Ledger에 적혀 있다 — 앞으로 홈에 방향키를
+// 자기 것으로 쓰는 요소(스크롤 영역·선택 메뉴)를 둘 수 없다.
 //
 // 씬 안(R3F Canvas 자식)이 아니라 DOM 쪽에 있는 것도 규율이다. Canvas
 // 자식은 별도 리컨실러라 DOM 이벤트·라우터에 기대지 않는다.
@@ -60,63 +62,42 @@ export interface SceneKeyNavOptions {
  *   뜻이 없어도 가로채이고, 엔터는 뜻이 있어도 가로채기 목록에 없다.
  */
 export function useSceneKeyNav(options: SceneKeyNavOptions): void {
-  // 리스너는 한 번만 달고, 매 프레임 바뀌는 값(커서·개수)은 ref로 최신을
-  // 읽는다 — 커서가 움직일 때마다 리스너를 떼었다 다는 일이 없도록.
-  const latest = useRef(options)
-  latest.current = options
+  const { active, count, cursor, stationRef, onCursorChange, onEnter } = options
 
-  const { active } = options
-
-  useEffect(() => {
+  useLayerKeyDown((event) => {
+    // 리스너가 아직 떨어지지 않았는데 씬이 키를 놓았을 수 있다.
     if (!active) return
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const {
-        active: stillActive,
-        count,
-        cursor,
-        stationRef,
-        onCursorChange,
-        onEnter,
-      } = latest.current
-      if (!stillActive) return
-      // 브라우저·OS 단축키(⌘←, Alt+←…)는 방문자의 것이다. 건드리지 않는다.
-      if (event.metaKey || event.ctrlKey || event.altKey) return
+    const station = stationRef.current
+    if (station === null) return
 
-      const station = stationRef.current
-      if (station === null) return
-
-      if (interceptsKey(SURFACE, event.key) && !usesKeysItself(event.target)) {
-        event.preventDefault()
-      }
-
-      const intent = keyIntent(event.key)
-
-      if (intent === 'prev' || intent === 'next') {
-        if (activeItemList(SURFACE) !== 'scene') return
-        const next = moveCursor(cursor, count, intent)
-        // 등록부가 비었다 — 갈 자리가 없으므로 초점도 데려오지 않는다
-        // (Requirement 29).
-        if (next === null) return
-        if (document.activeElement !== station) {
-          // 씬은 뷰포트를 통째로 덮으므로 스크롤해서 "보이게" 할 것이
-          // 없다. 초점을 옮기느라 페이지가 밀리는 일만 막는다.
-          station.focus({ preventScroll: true })
-        }
-        onCursorChange(next)
-        return
-      }
-
-      if (intent === 'enter') {
-        if (document.activeElement !== station || cursor === null) return
-        // 우리가 처리했다는 표시 — 이 자리에서 기본 동작이 겹쳐 두 번
-        // 열리는 일이 없도록.
-        event.preventDefault()
-        onEnter(cursor)
-      }
+    if (interceptsKey(SURFACE, event.key) && !usesKeysItself(event.target)) {
+      event.preventDefault()
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [active])
+    const intent = keyIntent(event.key)
+
+    if (intent === 'prev' || intent === 'next') {
+      if (activeItemList(SURFACE) !== 'scene') return
+      const next = moveCursor(cursor, count, intent)
+      // 등록부가 비었다 — 갈 자리가 없으므로 초점도 데려오지 않는다
+      // (Requirement 29).
+      if (next === null) return
+      if (document.activeElement !== station) {
+        // 씬은 뷰포트를 통째로 덮으므로 스크롤해서 "보이게" 할 것이
+        // 없다. 초점을 옮기느라 페이지가 밀리는 일만 막는다.
+        station.focus({ preventScroll: true })
+      }
+      onCursorChange(next)
+      return
+    }
+
+    if (intent === 'enter') {
+      if (document.activeElement !== station || cursor === null) return
+      // 우리가 처리했다는 표시 — 이 자리에서 기본 동작이 겹쳐 두 번
+      // 열리는 일이 없도록.
+      event.preventDefault()
+      onEnter(cursor)
+    }
+  }, active)
 }

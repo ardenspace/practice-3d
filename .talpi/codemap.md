@@ -4,7 +4,7 @@
 저장소에서 직접 읽는다. 정책은 `.talpi/conventions.md` 에 있다.
 
 path: src/keys/keyNav.ts
-is: 키 해석 계층. `keyIntent(key)`, `activeItemList(surface)`, `interceptsKey(surface, key)`, `moveCursor(current, count, direction)`. 방울·3D·씬을 모르고 항목 개수와 현재 위치만 안다(B2, Requirement 47). 씬 폴더 밖에 있는 것이 규약이다. 상태를 전혀 들지 않는다. 초점이 없을 때 방향키가 들어가는 자리는 인덱스 0 이고, 스페이스는 뜻이 없되(`keyIntent(' ')` 은 `null`) `interceptsKey` 는 참이라 홈과 목록에서 삼켜진다. Enter·Escape 는 가로채지 않는다 — 배선은 "가로챌지"를 `interceptsKey` 로, "무엇을 할지"를 `keyIntent` 로 따로 물어야 한다.
+is: 키 해석 계층. `keyIntent(key)`, `activeItemList(surface)`, `interceptsKey(surface, key)`, `moveCursor(current, count, direction)`, `ownsChord(modifiers)`. `ownsChord` 는 "이 조합이 우리 것인가"의 유일한 답으로, phase 3 검증자 지적으로 세 훅에 복사되어 있던 판정을 여기로 모았다. Shift 는 일부러 빼는데, 역방향 탭이 정상 조작이고 여기 넣으면 슬라이드의 탭 고리가 한 방향만 돌게 되기 때문이다. 방울·3D·씬을 모르고 항목 개수와 현재 위치만 안다(B2, Requirement 47). 씬 폴더 밖에 있는 것이 규약이다. 상태를 전혀 들지 않는다. 초점이 없을 때 방향키가 들어가는 자리는 인덱스 0 이고, 스페이스는 뜻이 없되(`keyIntent(' ')` 은 `null`) `interceptsKey` 는 참이라 홈과 목록에서 삼켜진다. Enter·Escape 는 가로채지 않는다 — 배선은 "가로챌지"를 `interceptsKey` 로, "무엇을 할지"를 `keyIntent` 로 따로 물어야 한다.
 phase: 3
 
 path: src/keys/useSceneKeyNav.ts
@@ -25,6 +25,14 @@ phase: 3
 
 path: src/works/returnFocus.ts
 is: 나온 뒤 초점이 갈 작품 한 건짜리 넘김 상자. `requestWorkFocus` / `takeWorkFocus`. **모듈 변수 하나뿐이라 페이지가 다시 로드되면 반드시 비어 있다** — 새로고침한 방문자에게 들어온 자리가 없다는 요구(41)가 여기서 나온다. 세션 저장소도 `location.state` 도 쓰지 않는다(히스토리 state 는 새로고침을 넘겨 살아남아 그 요구를 조용히 깬다). 한 번 꺼내면 비므로 두 번 적용되지 않는다.
+phase: 3
+
+path: src/keys/useLayerKeyDown.ts
+is: 세 키 배선 훅이 공유하는 window keydown 층(phase 3 검증자 지적으로 추출). 한 번만 붙이고, `latest` ref 로 렌더마다 새 핸들러를 만들어도 다시 구독하지 않으며, `active` 게이트를 받고, 위임 전에 `ownsChord` 를 적용한다. 타이머는 없고 판정은 `keyNav` 몫이라 여기는 배선만 든다.
+phase: 3
+
+path: src/scene/sceneShell.test.tsx
+is: 씬 셸 계약 테스트 9 개(phase 3 검증자 지적). `./webgl.ts` 와 R3F `Canvas` 를 스텁해 씬 **셸**만 띄운 뒤 B3 히스토리 표 ③행(Esc·바깥 클릭으로 닫기가 히스토리를 늘리지 않는다), Requirement 20(Esc 뒤 초점이 아이콘으로), Requirement 11·12 의 DOM 모양(탭 정거장이 정확히 둘, 정거장 안에 탭 가능한 자손이 없음, 아이콘이 정거장 뒤)을 핀한다. `getContext` 는 속이지 않는다. 방울 생김새·초점 고리·진짜 탭 키 동작은 이 파일이 말하지 못하며 브라우저 스모크 몫이다. `vi.mock` 이 파일 단위라 별도 파일로 두었다.
 phase: 3
 
 path: src/keys/keyTargets.ts
@@ -122,6 +130,10 @@ phase: prev-run (2 에서 추출)
 path: src/siteStyles.ts
 is: 홈과 목록이 공유하는 스타일 조각. `src/scene/homeStyles.ts` 를 대체하며 `src/` 바로 아래로 옮겼다. `works/ → scene/` 역임포트를 막기 위한 위치이므로 다시 인라인 복제하지 않는다.
 phase: prev-run (1 에서 이동)
+
+path: src/scene/constants.ts
+is: 방울 씬 상수 모듈. 카메라·라이트·방울 배치와 모션 파라미터 등 씬 매직 넘버가 전부 여기 있다. 색상과 `LONG_PRESS_MS` 는 여기 두지 않는다(`src/theme.ts` 몫). phase 3 이 초점 고리 값 `FOCUS_RING_*` 여섯 개를 더했다.
+phase: prev-run (3 에서 추가)
 
 path: src/index.css
 is: 전역 CSS. `page-enter`/`hint-enter` 에 더해 `slide-enter` keyframes 와 `--slide-enter-ms`(320ms). `prefers-reduced-motion` 에서 0ms 로 접힌다. CSS 모션은 여기, R3F 프레임 루프 모션은 `src/scene/reducedMotion.ts` 몫이다.
