@@ -62,14 +62,29 @@
   `sceneLost` 가 `sceneAvailable` 을 이기는 첫 갈래가 곧 B4 의
   "`webglcontextrestored` 가 와도 되돌리지 않는다"이다. 실행 중 상실이면
   `notice` 가 참이고 `redirect` 는 `!listOpen` 이라 `/works` 에 있던 경우
-  이동 없이 문구만 붙는다.
+  이동 없이 문구만 붙는다. phase 2 검증자 지적으로 `redirectedHere` 입력이
+  붙었고, 이 모듈이 표식 `REDIRECTED_HERE_STATE` 와 그 판독기
+  `wasRedirectedHere` 를 함께 든다. catch-all 이 알 수 없는 주소를 `/` 로
+  보낼 때 그 표식을 실어 보내므로, 히스토리 키가 새것이어도 "뜻하지 않은
+  이동"임을 알 수 있다.
+- `src/scene/sceneFallback.test.ts` — `decideSceneFallback` 회귀 테스트 13 개
+  (phase 2 검증자 지적). 모든 갈래와 함께 `sceneLost` 가 `sceneAvailable` 을
+  이긴다는 것(복구 무시 약속)을 화면 없이 핀한다.
+- `src/works/worksFocus.test.tsx` — `worksFocus` 회귀 테스트 11 개(phase 2
+  검증자 지적). 초점 물러남 사슬과 `planWorksFocusHandoff` 의 모든 갈래를
+  핀한다. 손으로 만든 DOM 이 아니라 진짜 `WorksList` 를 렌더하므로 표식이나
+  `tabIndex` 가 드리프트하면 여기서 깨진다.
 - `src/works/worksFocus.ts` — `focusWorksList({ slug?, doc? })`(phase 2 스텝
   3). 사라진 요소가 들고 있던 초점이 갈 곳을 정하는 유일한 자리. 지목된
   slug 항목 → 목록 첫 항목 → 목록 표면 자체(빈 등록부) 순으로 물러나므로
   어느 갈래에서도 `<body>` 로 떨어지지 않는다. props 가 아니라 DOM 표식
   (`WORK_ITEM_ATTR`)으로 목록을 찾는데, 그 목록이 라우트의 element 일 때도
   홈이 직접 그린 것일 때도 있기 때문이다. `slug` 인자는 페이즈 3 이 방울→항목
-  매핑을 얹을 자리이며 지금은 아무도 넘기지 않는다.
+  매핑을 얹을 자리다. phase 2 검증자 지적으로
+  `planWorksFocusHandoff(shell, active)` 가 더해졌다. 초점이 셸 밖이거나 아무
+  데도 없으면 `null` 을, 목록 항목 안이면 활성 요소의 `WORK_ITEM_ATTR`
+  조상에서 읽은 `{ slug }` 를 돌려준다. 그 결과 객체가 곧 `focusWorksList` 의
+  옵션 객체라 배선 어디에도 slug 를 흘릴 자리가 없다.
 - `src/ErrorBoundary.tsx` — 공용 에러 바운더리(phase 2 스텝 3). 잡은 뒤
   무엇을 그릴지(`fallback`)와 누구에게 알릴지(`onError`)를 바깥에서 받는다.
   바운더리 기계가 두 곳에 필요해지면서 `WorkErrorBoundary` 에서 추출했다.
@@ -89,7 +104,9 @@
 - `src/routes.tsx` — 라우팅 표면의 단일 진실 `routes: RouteObject[]`. App 은
   이 배열로 `createBrowserRouter` 를, 테스트는 같은 배열로
   `createMemoryRouter` 를 만든다. 작품 라우트는 등록부에서 파생된다. 알 수
-  없는 경로는 catch-all 로 `/` 에 보낸다. phase 1 스텝 3 에서 `/works` 가
+  없는 경로는 catch-all 로 `/` 에 보내며, phase 2 검증자 지적 이후 그
+  `<Navigate>` 에 `REDIRECTED_HERE_STATE` 를 실어 "뜻하지 않은 이동"임을
+  알린다. phase 1 스텝 3 에서 `/works` 가
   `/` 의 **자식 라우트**로 들어갔다. 형제로 두면 `/` ↔ `/works` 이동마다
   Canvas 가 언마운트·재마운트되므로 자식으로 두어 같은 `Home` 인스턴스를
   유지한다(Requirement 32). 라우트 요소는 `<WorksList variant="fullscreen" />`

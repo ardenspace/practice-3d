@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router'
 import type { RouteObject } from 'react-router'
 import Home from './scene/Home.tsx'
+import { REDIRECTED_HERE_STATE } from './scene/sceneFallback.ts'
 import { WORKS_PATH, workPath, works } from './works/registry.ts'
 import WorkErrorBoundary from './works/WorkErrorBoundary.tsx'
 import WorksList from './works/WorksList.tsx'
@@ -42,5 +43,13 @@ export const routes: RouteObject[] = [
       </WorkErrorBoundary>
     ),
   })),
-  { path: '*', element: <Navigate to="/" replace /> },
+  // 등록에 없는 slug와 알 수 없는 경로 — 홈으로 갈아친다. 이 이동은 방문자가
+  // 요청한 적이 없으므로 그 사실을 히스토리 항목에 실어 보낸다: 씬을 띄울 수
+  // 없는 방문자는 여기서 다시 목록으로 옮겨지고, 그때 안내 문구가 붙어야
+  // 한다 (Requirement 36). 갈아치기는 새 히스토리 키를 받기 때문에 키만으로는
+  // 이 이동이 방문자가 누른 링크와 구별되지 않는다 — 표식이 그 차이를 나른다.
+  {
+    path: '*',
+    element: <Navigate to="/" replace state={REDIRECTED_HERE_STATE} />,
+  },
 ]

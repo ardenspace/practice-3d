@@ -204,6 +204,25 @@ describe('B4: 씬을 띄울 수 없을 때', () => {
       ).toBe(false)
     })
 
+    it('알 수 없는 주소를 연 방문자에게는 문구가 보인다', async () => {
+      // 방문자는 없는 주소를 열었고, catch-all이 그를 `/`로 갈아친 뒤 씬이
+      // 없어 다시 목록으로 옮긴다. 그는 작품 목록을 요청한 적이 없다 —
+      // Requirement 37의 어느 면제에도 해당하지 않는다 (직접 열지도,
+      // 새로고침하지도, 스스로 링크를 누르지도 않았다).
+      //
+      // 갈아치기는 새 히스토리 키를 받으므로 "이 방문의 첫 항목인가"만으로는
+      // 이 방문자가 스스로 누른 링크로 온 방문자와 구별되지 않는다.
+      const { router, container } = renderAt('/definitely/not/a/route')
+
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe(WORKS_PATH),
+      )
+      expect(
+        noticeShown(container),
+        '요청하지 않은 이동에는 안내가 붙는다 (Requirement 36)',
+      ).toBe(true)
+    })
+
     it('작품 페이지의 홈 링크로 온 방문자에게는 문구가 없다', async () => {
       // 스스로 누른 링크로 닿았으므로 화면은 같고 안내만 없다
       // (Requirement 37).

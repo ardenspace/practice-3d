@@ -11,7 +11,11 @@ import {
 import ErrorBoundary from '../ErrorBoundary.tsx'
 import { decideListClose } from '../works/listClose.ts'
 import { WORKS_PATH, workPath } from '../works/registry.ts'
-import { focusWorksList } from '../works/worksFocus.ts'
+import {
+  focusWorksList,
+  planWorksFocusHandoff,
+  type WorksFocusHandoff,
+} from '../works/worksFocus.ts'
 import WorksList from '../works/WorksList.tsx'
 import WorksOpenIcon from '../works/WorksOpenIcon.tsx'
 import {
@@ -38,7 +42,7 @@ import {
   POINT_LIGHT_INTENSITY,
   POINT_LIGHT_PINK_POSITION,
 } from './constants.ts'
-import { decideSceneFallback } from './sceneFallback.ts'
+import { decideSceneFallback, wasRedirectedHere } from './sceneFallback.ts'
 
 // 홈 씬 호스트 (B4 분기의 단일 지점)이자 `/`와 `/works`가 공유하는 셸.
 // - 마운트 전 isWebGLAvailable()로 WebGL을 프로브한다. 불가 → 이 방문자의
@@ -167,6 +171,11 @@ export default function Home() {
     sceneLost,
     listOpen: worksOpen,
     locationKey: location.key,
+    // 알 수 없는 주소를 열어 catch-all이 여기로 데려다 놓은 방문자인가
+    // (routes.tsx). 이 자리는 그가 고른 자리가 아니므로 이어지는 이동에는
+    // 안내가 붙는다 (Requirement 36). 무엇을 뜻하는지는 판정 쪽이 알고,
+    // 여기는 사실만 실어 준다.
+    redirectedHere: wasRedirectedHere(location.state),
   })
 
   // 안내 문구가 붙는 길은 두 갈래다.
@@ -233,27 +242,31 @@ export default function Home() {
   // 그 셸 안에 초점이 있었다면 초점을 들고 있던 요소도 함께 사라지므로
   // 초점이 <body>로 떨어진다. 그 사실을 지금 — 아직 셸이 DOM에 있을 때 —
   // 확인해 두었다가 전이가 끝난 뒤 목록 안으로 넘긴다 (Requirement 38).
-  // 셸 밖에 초점이 있었거나 아무 데도 없었다면 방문자에게서 초점을 빼앗지
-  // 않는다.
+  // 무엇을 확인하고 어디로 넘길지는 화면을 모르는 planWorksFocusHandoff가
+  // 정한다: 셸 밖에 초점이 있었거나 아무 데도 없었으면 null(방문자에게서
+  // 초점을 빼앗지 않는다), 목록 항목에 있었으면 그 항목의 slug를 함께 실어
+  // 준다. 목록이 열려 있었다면 초점은 있던 항목에 그대로 남는다 — 항목 N에
+  // 있던 초점이 항목 1로 튀지 않는다.
   const sceneShellRef = useRef<HTMLElement>(null)
-  const focusHandoffPending = useRef(false)
+  const focusHandoff = useRef<WorksFocusHandoff | null>(null)
 
   const loseScene = useCallback(() => {
-    const shell = sceneShellRef.current
-    const active = document.activeElement
-    focusHandoffPending.current =
-      shell !== null && active !== null && shell.contains(active)
+    focusHandoff.current = planWorksFocusHandoff(
+      sceneShellRef.current,
+      document.activeElement,
+    )
     setSceneLost(true)
   }, [])
 
   // 초점 넘기기는 화면이 제자리를 잡은 뒤에 한다. 갈아치기가 남아 있으면
   // (`/`에서 무너진 경우) 목록이 곧 한 번 더 다시 뜨므로, 지금 초점을 준
   // 요소는 그 다음 렌더에서 사라진다 — 갈아치기가 끝나 redirect가 내려간
-  // 뒤에 넘긴다.
+  // 뒤에 넘긴다. 계획을 통째로 넘기므로 도중에 slug를 흘릴 자리가 없다.
   useEffect(() => {
-    if (!sceneLost || fallback.redirect || !focusHandoffPending.current) return
-    focusHandoffPending.current = false
-    focusWorksList()
+    const handoff = focusHandoff.current
+    if (!sceneLost || fallback.redirect || handoff === null) return
+    focusHandoff.current = null
+    focusWorksList(handoff)
   }, [sceneLost, fallback.redirect])
 
   // 실행 중 컨텍스트 상실. Canvas onCreated에서 실제 렌더러의 캔버스 요소에

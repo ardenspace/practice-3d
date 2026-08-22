@@ -12,10 +12,18 @@ import { INITIAL_LOCATION_KEY } from '../works/listClose.ts'
 // 슬라이드에서 화면 전체로 바뀔 뿐 이동은 일어나지 않는다.
 //
 // 규칙 둘: 안내 문구는 화면이 아니라 **뜻하지 않은 변화**에 붙는다
-// (Requirement 36·37). 방문이 `/`에서 시작했다면 방문자는 아무것도 누르지
-// 않았는데 다른 주소로 옮겨진다 — 그때 문구가 붙는다. 스스로 누른 링크로
-// `/`에 닿았다면(작품 페이지의 홈 링크가 그렇다) 그 이동은 방문자가 시작한
-// 것이고, `/works`를 직접 열었거나 새로고침했다면 애초에 이동이 없다.
+// (Requirement 36·37). 방문자가 이 자리를 스스로 고르지 않았다면, 이어지는
+// 이동은 그가 요청한 적 없는 이동이다 — 그때 문구가 붙는다. 스스로 고르지
+// 않은 자리는 두 가지다:
+//   ① 방문이 여기서 시작했다 (`locationKey === INITIAL_LOCATION_KEY`).
+//      아무것도 누르지 않았는데 다른 주소로 옮겨진다.
+//   ② 사이트가 이 자리로 갈아쳤다 (`redirectedHere`). 알 수 없는 주소를
+//      연 방문자를 catch-all이 `/`로 데려다 놓은 경우가 그렇다 — 히스토리
+//      키는 새것이라 ①로는 보이지 않지만, 방문자가 고른 자리가 아닌 것은
+//      마찬가지다.
+// 반대로 스스로 누른 링크로 `/`에 닿았다면(작품 페이지의 홈 링크가 그렇다)
+// 그 이동은 방문자가 시작한 것이고, `/works`를 직접 열었거나 새로고침했다면
+// 애초에 이동이 없다.
 //
 // 규칙 셋: 실행 중에 씬이 무너지는 것(`sceneLost`)은 언제나 뜻하지 않은
 // 변화다. 방문자는 방금까지 방울을 보고 있었다 — 이동이 따르든(`/`에 있던
@@ -38,6 +46,30 @@ export interface SceneFallbackInput {
   listOpen: boolean
   /** 지금 위치의 히스토리 키. `INITIAL_LOCATION_KEY`면 방문의 첫 화면이다. */
   locationKey: string
+  /**
+   * 이 자리를 방문자가 고른 것이 아니라 사이트가 갈아쳤는가 — 알 수 없는
+   * 주소를 받은 catch-all이 `/`로 데려다 놓은 경우 (routes.tsx).
+   * 그 이동은 히스토리 키를 새로 받으므로 `locationKey`만으로는 방문자가
+   * 스스로 누른 링크와 구별되지 않는다. 사실을 실어 오는 통로는
+   * `REDIRECTED_HERE_STATE` / `wasRedirectedHere` 한 쌍이다.
+   */
+  redirectedHere?: boolean
+}
+
+/**
+ * catch-all이 `/`로 갈아치면서 히스토리 항목에 남기는 표식
+ * (react-router `location.state`). "이 자리는 방문자가 고른 것이 아니다".
+ * 남기는 쪽(routes.tsx)과 읽는 쪽(Home.tsx)이 같은 값을 쓰도록 여기 둔다.
+ */
+export const REDIRECTED_HERE_STATE = { redirectedHere: true } as const
+
+/** `location.state`가 위 표식을 달고 있는가. 모양이 다르면 거짓이다. */
+export function wasRedirectedHere(state: unknown): boolean {
+  return (
+    typeof state === 'object' &&
+    state !== null &&
+    (state as { redirectedHere?: unknown }).redirectedHere === true
+  )
 }
 
 export interface SceneFallbackDecision {
@@ -65,6 +97,7 @@ export function decideSceneFallback({
   sceneLost,
   listOpen,
   locationKey,
+  redirectedHere = false,
 }: SceneFallbackInput): SceneFallbackDecision {
   // 실행 중에 무너졌다. 이 사실이 프로브 결과를 이긴다 — 복구되었다는
   // 소식이 와도 씬으로 돌아가지 않는다 (B4).
@@ -79,6 +112,6 @@ export function decideSceneFallback({
   return {
     showScene: false,
     redirect: true,
-    notice: locationKey === INITIAL_LOCATION_KEY,
+    notice: locationKey === INITIAL_LOCATION_KEY || redirectedHere,
   }
 }
