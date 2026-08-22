@@ -132,6 +132,39 @@ function spokenAtScene(station: HTMLElement): string {
   ].join(' ')
 }
 
+/**
+ * 지금 서 있는 자리가 "전체 안에서 몇 번째"인지를 말하는 숫자들.
+ *
+ * 무엇으로 전달할지는 위임 구역이므로 표준 두 갈래를 모두 받아들인다:
+ * 낭독되는 글자에 숫자로 섞여 있어도(스크린 리더가 문장으로 듣는 길), 지금
+ * 지목된 항목의 aria-posinset/aria-setsize에 들어 있어도(보조기술이 목록
+ * 구조에서 직접 세는 길) 똑같이 걷어 온다. 문구의 표현은 한 글자도 보지
+ * 않는다 — 숫자만 센다.
+ *
+ * 지목된 항목만 보는 이유: 항목 전부의 posinset을 긁어모으면 "1·2·3이
+ * 어딘가에 있다"가 언제나 참이 되어, 초점이 어디 있든 통과해 버린다.
+ */
+function currentItemOf(station: HTMLElement): HTMLElement | null {
+  const id = station.getAttribute('aria-activedescendant')
+  const pointed = id === null ? null : station.ownerDocument.getElementById(id)
+  return (
+    pointed ??
+    station.querySelector<HTMLElement>('[aria-current]:not([aria-current="false"])')
+  )
+}
+
+function positionNumbersAt(station: HTMLElement): number[] {
+  const spoken = (spokenAtScene(station).match(/\d+/g) ?? []).map(Number)
+  const current = currentItemOf(station)
+  const marked =
+    current === null
+      ? []
+      : ['aria-posinset', 'aria-setsize']
+          .map((attr) => Number(current.getAttribute(attr)))
+          .filter((value) => Number.isFinite(value) && value > 0)
+  return [...spoken, ...marked]
+}
+
 async function openListFromIcon(
   router: { state: { location: { pathname: string } } },
   getByRole: ReturnType<typeof renderHome>['getByRole'],
@@ -196,6 +229,35 @@ describe('B6 ①: 씬의 작품 방울들이 목록으로 드러난다', () => {
     expect(spoken, '아직 닿지 않은 자리를 미리 읽지 않는다').not.toContain(
       works[2].title,
     )
+  })
+
+  it('이름과 함께 "전체 안에서의 위치"도 전달된다', async () => {
+    // B6 ①은 이름**과** 전체 안에서의 위치를 함께 요구한다. 위 테스트는
+    // 이름 쪽만 잡으므로, 자리 번호와 전체 개수를 통째로 걷어내도 초록으로
+    // 남는다 — 그 절반을 여기서 못 박는다.
+    //
+    // 문구의 표현은 위임 구역이라 한 글자도 단언하지 않는다. 대신 방문자가
+    // 자리를 알 수 있으려면 반드시 있어야 하는 두 수 — 지금 몇 번째인가와
+    // 전부 몇 개인가 — 가 전달되는지만 본다 (수단은 positionNumbersAt이
+    // 표준 두 갈래를 모두 받아들인다). 초점을 한 바퀴 돌리며 매번 확인하므로
+    // 고정된 숫자 하나를 읽어 주는 것으로는 통과하지 못한다.
+    renderHome()
+    await settle()
+
+    const station = stepScene()
+
+    for (let index = 0; index < works.length; index += 1) {
+      if (index > 0) fireEvent.keyDown(document.body, { key: 'ArrowDown' })
+      const numbers = positionNumbersAt(station)
+      expect(
+        numbers,
+        `${index + 1}번째 자리에 서 있다는 것이 전달되어야 한다`,
+      ).toContain(index + 1)
+      expect(
+        numbers,
+        '전체가 몇 개인지도 함께 전달되어야 한다 — 번째만으로는 자리를 모른다',
+      ).toContain(works.length)
+    }
   })
 })
 

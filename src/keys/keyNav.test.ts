@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   activeItemList,
+  beginsKeyboardUse,
   interceptsKey,
   keyIntent,
   moveCursor,
@@ -98,6 +99,37 @@ describe('B2: ⌘·Ctrl·Alt 조합은 이 계층의 키가 아니다', () => {
     // 판정이 달라지지 않는다는 것까지 본다.
     const shiftHeld: KeyModifiers & { shiftKey: boolean } = { shiftKey: true }
     expect(ownsChord(shiftHeld)).toBe(true)
+  })
+})
+
+describe('Requirement 43: 이 키를 누른 것이 곧 "키보드를 쓰기 시작했다"인가', () => {
+  // 조작법의 화면 갈래는 이 판정 하나에 걸려 있다 — 참이 되어야 안내가
+  // 화면에 나타난다. 판정 자체는 화면도 DOM도 모르므로 여기서 확인한다
+  // (conventions: 입력 판정은 순수 모듈, 컴포넌트에는 배선만).
+  //
+  // 참이 되는 **키의 집합**이 정확히 무엇인가는 Simplicity Zone이라
+  // ("기준은 일부러 단순하다") 전부를 못 박지 않는다. 계약이 정한 것만
+  // 못 박는다: 이 사이트를 키보드로 지나가는 길이 실제로 신호로 쳐지는가.
+  // 그 길을 걷는 방문자가 신호로 안 쳐지면 안내가 끝내 나타나지 않는다.
+  //
+  // 마우스만 쓰는 사람 쪽(안내가 끝까지 보이지 않는다)은 이 함수가 아니라
+  // "keydown이 아예 오지 않는다"가 만든다 — 배선 쪽에서 확인한다
+  // (scene/sceneShell.test.tsx).
+
+  it('안내가 말하는 키들 — 방향키·엔터·Esc — 은 전부 신호다', () => {
+    for (const key of [...Object.keys(ARROWS), 'Enter', 'Escape']) {
+      expect(
+        beginsKeyboardUse(key),
+        `${key}로 조작을 시작한 방문자에게 안내가 나타나야 한다`,
+      ).toBe(true)
+    }
+  })
+
+  it('탭도 신호다 — 씬에 처음 닿는 길이 탭이다', () => {
+    // 탭의 뜻은 여전히 브라우저의 것이다(위 "표에 없는 키"). 뜻이 없다는
+    // 것과 키보드를 쓰기 시작하지 않았다는 것은 다른 말이다.
+    expect(keyIntent('Tab'), '뜻은 이 계층이 정하지 않는다').toBeNull()
+    expect(beginsKeyboardUse('Tab'), '그래도 키보드를 쓰기 시작했다').toBe(true)
   })
 })
 

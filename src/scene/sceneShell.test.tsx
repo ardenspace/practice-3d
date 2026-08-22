@@ -2,8 +2,10 @@ import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { routes } from '../routes.tsx'
+import { visuallyHiddenStyle } from '../siteStyles.ts'
 import {
   HOME_TESTID,
+  KEYBOARD_HINT,
   WORKS_DISMISS_TESTID,
   WORKS_OPEN_LABEL,
   WORKS_TESTID,
@@ -109,6 +111,33 @@ function listSurface(container: HTMLElement): HTMLElement {
   )
   if (surface === null) throw new Error('작품 목록이 화면에 없다')
   return surface
+}
+
+/**
+ * 이 요소가 눈에 보이는 자리에 있는가.
+ *
+ * "화면에 있다"를 요소 종류나 속성으로 집지 않는다 — 그쪽은 위임 구역이다.
+ * 이 프로젝트가 "눈에는 없고 낭독에는 있다"를 만드는 수단은 siteStyles의
+ * visuallyHiddenStyle 하나뿐이므로(그 파일이 그렇게 적어 두었다), 그 조각을
+ * 그대로 기준으로 삼는다: 잘라 낸 자리 안에 있으면 화면에 없는 것이다.
+ */
+function isOnScreen(el: HTMLElement): boolean {
+  for (let node: HTMLElement | null = el; node !== null; node = node.parentElement) {
+    if (node.style.clipPath === visuallyHiddenStyle.clipPath) return false
+  }
+  return true
+}
+
+/** 조작법 안내가 지금 화면에 놓여 있는 자리들. */
+function keyboardHintsOnScreen(container: HTMLElement): HTMLElement[] {
+  return keyboardHintsAnywhere(container).filter(isOnScreen)
+}
+
+/** 조작법 안내가 지금 DOM에 있는 자리들 — 화면 갈래와 소리 갈래를 함께. */
+function keyboardHintsAnywhere(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>('*')).filter(
+    (el) => el.children.length === 0 && el.textContent === KEYBOARD_HINT,
+  )
 }
 
 describe('씬 셸이 떠 있다 (대역 sanity)', () => {
@@ -223,6 +252,73 @@ describe('Requirement 20: Esc를 누르면 목록이 닫히고 초점이 아이�
       container.querySelector(`[data-testid="${WORKS_TESTID}"]`),
       '닫혔다',
     ).toBeNull()
+  })
+})
+
+describe('Requirement 43: 조작법의 화면 갈래', () => {
+  // 조작법은 두 갈래로 알려진다. 소리 갈래("씬에 닿을 때 항상 읽힌다")는
+  // sceneAccessibility.test.tsx가 정거장의 설명으로 확인한다. 여기서 보는
+  // 것은 화면 갈래 — 키보드를 쓰기 시작한 순간 나타나고, 마우스만 쓴
+  // 방문자에게는 끝까지 나타나지 않는다.
+  //
+  // 이 화면은 씬 셸이 떠 있어야 존재하므로 이 파일의 대역이 필요하다.
+  // jsdom이 탭을 실행하지 않는 것은 걸림돌이 되지 않는다 — 방향키만으로도
+  // 같은 latch를 지나간다.
+
+  it('키보드를 쓰기 전에는 화면에 없다', async () => {
+    const { container } = renderAt('/')
+    await settle()
+
+    // 소리 갈래는 처음부터 있다 — 아래 0이 "안내가 아예 없다"가 아니라
+    // "화면에는 아직 없다"라는 뜻임을 여기서 못 박는다.
+    expect(
+      keyboardHintsAnywhere(container).length,
+      '소리로 듣는 사람에게는 처음부터 있다',
+    ).toBeGreaterThan(0)
+    expect(
+      keyboardHintsOnScreen(container),
+      '화면에는 아직 나타나지 않는다',
+    ).toHaveLength(0)
+  })
+
+  it('키보드를 쓰기 시작한 순간 나타난다', async () => {
+    const { container } = renderAt('/')
+    await settle()
+
+    fireEvent.keyDown(document.body, { key: 'ArrowDown' })
+
+    expect(
+      keyboardHintsOnScreen(container),
+      '방향키를 누른 방문자에게 조작법이 화면에 나타난다',
+    ).toHaveLength(1)
+  })
+
+  it('마우스만 쓴 방문자에게는 끝까지 나타나지 않는다', async () => {
+    const { container } = renderAt('/')
+    await settle()
+
+    // 마우스로 할 수 있는 일을 다 한다 — 씬을 누르고, 움직이고, 놓는다.
+    const shell = sceneShell(container)
+    for (const target of [shell, openIcon(container)]) {
+      fireEvent.pointerDown(target)
+      fireEvent.mouseDown(target)
+      fireEvent.mouseMove(target)
+      fireEvent.mouseUp(target)
+    }
+    fireEvent.click(shell)
+
+    expect(
+      keyboardHintsOnScreen(container),
+      '키보드 설명은 마우스만 쓰는 사람에게 아무 쓸모 없는 글자다',
+    ).toHaveLength(0)
+
+    // 위 0이 "이 화면에서는 언제나 0"이 아니라는 것 — 같은 화면이 키 하나에
+    // 안내를 내놓는다. 이것이 없으면 화면 갈래를 통째로 지워도 위가 초록이다.
+    fireEvent.keyDown(document.body, { key: 'ArrowDown' })
+    expect(
+      keyboardHintsOnScreen(container),
+      '같은 화면이 키 하나에는 안내를 내놓는다',
+    ).toHaveLength(1)
   })
 })
 
