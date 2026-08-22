@@ -4,6 +4,7 @@ import Home from './scene/Home.tsx'
 import { REDIRECTED_HERE_STATE } from './scene/sceneFallback.ts'
 import { WORKS_PATH, workPath, works } from './works/registry.ts'
 import WorkErrorBoundary from './works/WorkErrorBoundary.tsx'
+import WorkExit from './works/WorkExit.tsx'
 import WorksList from './works/WorksList.tsx'
 
 // B3 — 라우팅 표면의 단일 진실.
@@ -35,12 +36,19 @@ export const routes: RouteObject[] = [
   // 작품 라우트만 WorkErrorBoundary로 감싼다 (크래시 → 실패 문구 + 홈
   // 링크의 최소 화면; 정상 경로는 도착 페이드 프레임). 홈 라우트는 감싸지
   // 않는다 — 씬 오류가 여기로 흡수되면 B4 폴백 경로가 가려진다.
+  //
+  // 나가는 길(Esc)도 같은 이 자리에서 딸려 붙는다 (Requirement 42, B1 (d)):
+  // 라우트가 등록부에서 파생되므로 Esc도 등록부에서 파생된다 — 작품 페이지
+  // 파일에는 그 코드가 한 줄도 없고, 새 작품을 만든 사람이 붙이는 걸 깜빡할
+  // 여지도 없다. 바운더리 바깥에 두어 크래시한 최소 화면에서도 살아 있다.
   ...works.map((w) => ({
     path: workPath(w.slug),
     element: (
-      <WorkErrorBoundary>
-        <w.Page />
-      </WorkErrorBoundary>
+      <WorkExit slug={w.slug}>
+        <WorkErrorBoundary>
+          <w.Page />
+        </WorkErrorBoundary>
+      </WorkExit>
     ),
   })),
   // 등록에 없는 slug와 알 수 없는 경로 — 홈으로 갈아친다. 이 이동은 방문자가

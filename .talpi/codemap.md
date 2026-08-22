@@ -15,6 +15,18 @@ path: src/keys/useListKeyNav.ts
 is: 열린 목록의 키 배선. `keyNav` 의 판정을 window keydown 에 잇는다. **목록은 커서 상태를 들지 않는다** — 항목이 전부 진짜 링크라 DOM 초점이 곧 커서이고, 키를 누를 때마다 `document.activeElement` 에서 현재 자리를 읽는다. 그래서 탭이나 마우스로 간 자리에서 방향키가 이어지고 드리프트할 상태가 없다. 따라 스크롤은 `preventScroll` 없이 `focus()` 를 불러 브라우저에 맡긴다. 엔터는 일부러 다루지 않는다 — 항목이 진짜 링크라 기본 활성화가 곧 옳은 동작이고 여기서 다루면 그것이 이중 발동이다. `trapTab` 은 `exit` 가 있을 때만 참이라, 나가는 길 없는 탭 고리를 만들 수 없다. 작품·등록부·slug 를 모르고 항목 선택자를 호출자에게서 받는다.
 phase: 3
 
+path: src/keys/useWorkExitKeyNav.ts
+is: 작품 표면의 키 배선. `useSceneKeyNav`·`useListKeyNav` 와 짝을 이루는 세 번째 자리다. **`preventDefault` 가 하나도 없다** — 작품 페이지의 방향키·스페이스는 브라우저 기본 동작이어야 한다(Requirement 6). 키 표면이 하나 더 생기면 이 결을 따른다.
+phase: 3
+
+path: src/works/WorkExit.tsx
+is: 작품 페이지에서 나오는 길. 화면을 그리지 않고 자식을 그대로 내보내며 배선만 얹는다. `routes.tsx` 의 `works.map(...)` 안에서 쓰이므로 Esc 가 **등록부 파생 라우팅에 딸려 붙는다**(Requirement 42) — 작품 페이지 파일에는 Esc 코드가 없다. 에러 바운더리 바깥에 있어 페이지가 크래시한 최소 화면에서도 Esc 가 산다.
+phase: 3
+
+path: src/works/returnFocus.ts
+is: 나온 뒤 초점이 갈 작품 한 건짜리 넘김 상자. `requestWorkFocus` / `takeWorkFocus`. **모듈 변수 하나뿐이라 페이지가 다시 로드되면 반드시 비어 있다** — 새로고침한 방문자에게 들어온 자리가 없다는 요구(41)가 여기서 나온다. 세션 저장소도 `location.state` 도 쓰지 않는다(히스토리 state 는 새로고침을 넘겨 살아남아 그 요구를 조용히 깬다). 한 번 꺼내면 비므로 두 번 적용되지 않는다.
+phase: 3
+
 path: src/keys/keyTargets.ts
 is: 브라우저에 되묻는 두 헬퍼 `usesKeysItself`(input/textarea/select/button/contenteditable 판별)와 `focusedByKeyboard`(`:focus-visible` 판정). 씬과 목록이 같은 사본을 쓰도록 `useSceneKeyNav` 에서 빼냈다. 키 표면이 하나 더 생기면 여기서 임포트한다.
 phase: 3
@@ -48,8 +60,8 @@ is: 씬 홈 오른쪽 위에서 목록을 여는 아이콘. 진짜 `<a href="/wo
 phase: 1
 
 path: src/works/listClose.ts
-is: `decideListClose(locationKey)` — 목록을 닫을 때 히스토리를 되감을지 `/` 로 갈아칠지 정하는 순수 규칙. DOM 도 라우터도 모른다. 목록을 닫는 길이 더 생기면(페이즈 3 의 Esc) 판정을 새로 내리지 말고 이 모듈을 거친다.
-phase: 1
+is: 되감을 자리가 있는지 묻는 순수 규칙. phase 3 에서 묻는 자리가 둘이 되어 판정 근거를 `startedHere(locationKey)` 로 꺼냈고, `decideListClose` 는 그것을 부르는 얇은 껍데기가 되었다(계약은 그대로). DOM 도 라우터도 모른다. **되감을지 갈아칠지를 묻는 새 자리는 여기를 거친다.**
+phase: 1 (3 에서 `startedHere` 추출)
 
 path: src/works/listClose.test.ts
 is: `decideListClose` 회귀 테스트. 두 갈래와, 그 판정이 기대는 react-router 사실(첫 항목의 `location.key` 가 `'default'`)을 함께 핀한다.

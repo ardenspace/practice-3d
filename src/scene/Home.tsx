@@ -21,6 +21,7 @@ import { focusedByKeyboard } from '../keys/keyTargets.ts'
 import { useSceneKeyNav } from '../keys/useSceneKeyNav.ts'
 import { decideListClose } from '../works/listClose.ts'
 import { WORKS_PATH, workPath, works } from '../works/registry.ts'
+import { takeWorkFocus } from '../works/returnFocus.ts'
 import {
   focusWorksList,
   planWorksFocusHandoff,
@@ -285,10 +286,11 @@ export default function Home() {
   // 한 번의 엔터가 두 번 발동하지 않는다 (Requirement 10).
   const [popRequest, setPopRequest] = useState<number | null>(null)
 
-  // 씬이 가진 정거장 안의 자리 수. 씬과 같은 파생을 거친다 — 등록부를
-  // 직접 세면 "등록 항목 N개 = 작품 방울 N개"가 두 곳에서 따로 참이
-  // 되어야 한다.
-  const workBubbleCount = useMemo(() => deriveWorkBubbles(works).length, [])
+  // 씬이 든 방울들. 씬과 같은 파생을 거친다 — 등록부를 직접 세거나 훑으면
+  // "등록 항목 N개 = 작품 방울 N개"와 그 순서가 두 곳에서 따로 참이 되어야
+  // 한다.
+  const workBubbles = useMemo(() => deriveWorkBubbles(works), [])
+  const workBubbleCount = workBubbles.length
 
   // 씬이 떠 있고 목록이 닫혀 있을 때만 씬이 키를 받는다. 목록이 열린
   // 동안의 키는 목록 몫이고, 씬 없는 홈의 키는 그 화면인 전체 화면 목록
@@ -356,6 +358,38 @@ export default function Home() {
     focusHandoff.current = null
     focusWorksList(handoff)
   }, [sceneLost, fallback.redirect])
+
+  // 작품 페이지에서 Esc로 나온 방문자가 방금 도착했다 (Requirements 40·41).
+  // 어디로 올지는 나오는 쪽이 정했고(되감기 또는 갈아치기), 이 셸은 그가
+  // 보고 있던 작품 하나만 넘겨받아 이 화면에서 그 작품이 있는 자리에 초점을
+  // 얹는다: 씬이 떠 있으면 그 작품의 방울에, 목록이면 그 작품의 항목에.
+  // 목적지가 무엇이 되었든 같은 slug로 찾으므로, 방울로 들어왔다가 그새 씬을
+  // 쓸 수 없게 되어 목록으로 옮겨진 방문자도 그 작품 앞에 선다.
+  //
+  // 걸린 것이 없으면 아무 일도 없다 — 마우스로 홈 링크를 눌러 나온 방문자
+  // 에게서 초점을 빼앗지 않는다.
+  useEffect(() => {
+    // 갈아치기가 남아 있으면 화면이 곧 한 번 더 바뀐다. 지금 초점을 준
+    // 요소는 그 다음 렌더에서 사라지므로, 끝난 뒤에 얹는다 (위 전이와 같은
+    // 이유). 꺼내는 것도 그때까지 미룬다 — 상자는 한 번 꺼내면 빈다.
+    if (fallback.redirect) return
+    const slug = takeWorkFocus()
+    if (slug === null) return
+
+    if (fallback.showScene && !worksOpen) {
+      const index = workBubbles.findIndex((b) => b.entry.slug === slug)
+      // 등록부에서 사라진 작품(직접 연 주소가 그새 없어진 경우)이면 설
+      // 자리가 없다. 초점을 아무 데나 옮기지 않는다.
+      if (index < 0) return
+      setSceneCursor(index)
+      // 씬은 뷰포트를 통째로 덮으므로 스크롤해서 보이게 할 것이 없다.
+      sceneStationRef.current?.focus({ preventScroll: true })
+      return
+    }
+
+    // 목록 — 슬라이드든 전체 화면이든 초점이 갈 곳을 정하는 자리는 하나다.
+    focusWorksList({ slug })
+  }, [fallback.redirect, fallback.showScene, worksOpen, workBubbles])
 
   // 실행 중 컨텍스트 상실. Canvas onCreated에서 실제 렌더러의 캔버스 요소에
   // 리스너를 단다 (Canvas가 언마운트되면 요소째 사라지므로 별도 해제는
