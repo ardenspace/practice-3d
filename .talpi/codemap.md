@@ -27,6 +27,10 @@ path: src/works/returnFocus.ts
 is: 나온 뒤 초점이 갈 작품 한 건짜리 넘김 상자. `requestWorkFocus` / `takeWorkFocus`. **모듈 변수 하나뿐이라 페이지가 다시 로드되면 반드시 비어 있다** — 새로고침한 방문자에게 들어온 자리가 없다는 요구(41)가 여기서 나온다. 세션 저장소도 `location.state` 도 쓰지 않는다(히스토리 state 는 새로고침을 넘겨 살아남아 그 요구를 조용히 깬다). 한 번 꺼내면 비므로 두 번 적용되지 않는다.
 phase: 3
 
+path: src/keys/useKeyboardInUse.ts
+is: "이 방문자가 키보드를 쓰기 시작했는가"를 재는 한 방향 latch(phase 4). 기준은 탭 또는 이 계층이 뜻을 아는 키(방향키·엔터·Esc)의 keydown 한 번이며, 판정 자체는 `keyNav.beginsKeyboardUse(key)` 가 든다. 마우스만 쓰는 방문자에게는 keydown 이 오지 않아 한 번도 참이 되지 않는다. 참이 되면 리스너가 떨어진다. 되돌리지 않는 이유는 두 기기를 번갈아 쓰는 사람에게 안내가 깜빡이는 편이 더 나쁘기 때문이다. 키보드 전용 안내가 다른 화면에도 생기면 이 훅을 재사용한다.
+phase: 4
+
 path: src/keys/useLayerKeyDown.ts
 is: 세 키 배선 훅이 공유하는 window keydown 층(phase 3 검증자 지적으로 추출). 한 번만 붙이고, `latest` ref 로 렌더마다 새 핸들러를 만들어도 다시 구독하지 않으며, `active` 게이트를 받고, 위임 전에 `ownsChord` 를 적용한다. 타이머는 없고 판정은 `keyNav` 몫이라 여기는 배선만 든다.
 phase: 3
@@ -148,5 +152,5 @@ is: 방울 씬 상수 모듈. 카메라·라이트·방울 배치와 모션 파�
 phase: prev-run (3 에서 추가)
 
 path: src/index.css
-is: 전역 CSS. `page-enter`/`hint-enter` 에 더해 `slide-enter` keyframes 와 `--slide-enter-ms`(320ms). `prefers-reduced-motion` 에서 0ms 로 접힌다. CSS 모션은 여기, R3F 프레임 루프 모션은 `src/scene/reducedMotion.ts` 몫이다.
+is: 전역 CSS. phase 4 에서 `--hint-enter-ms` 와 `--keyboard-hint-enter-ms` 를 더했다 — `HINT_ENTER_ANIMATION` 의 지속시간이 `2.4s` 로 하드코딩되어 있어 모션 축소를 요청한 방문자에게도 힌트가 2.4 초에 걸쳐 페이드되고 있었고, 그것이 이 파일 주석의 약속과 어긋나 있었다. `page-enter`/`hint-enter` 에 더해 `slide-enter` keyframes 와 `--slide-enter-ms`(320ms). `prefers-reduced-motion` 에서 0ms 로 접힌다. CSS 모션은 여기, R3F 프레임 루프 모션은 `src/scene/reducedMotion.ts` 몫이다.
 phase: prev-run (1 에서 추가)

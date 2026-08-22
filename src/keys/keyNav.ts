@@ -95,6 +95,28 @@ export function keyIntent(key: string): KeyIntent | null {
 }
 
 /**
+ * 이 키를 누른 것이 곧 "방문자가 키보드로 조작하기 시작했다"인가
+ * (Requirement 43의 화면 쪽 조건).
+ *
+ * 기준은 일부러 단순하다 (Simplicity Zone): 이 계층이 뜻을 아는 키
+ * (방향키·엔터·Esc)이거나 탭이면 참. 그 여섯이 곧 이 사이트를 키보드로
+ * 지나가는 방법의 전부이고, 안내 문구가 말하는 것도 정확히 그것들이다 —
+ * 안내에 없는 키를 눌렀다고 안내가 뜨지 않는다.
+ *
+ * 탭이 표에 없는데도 여기 있는 이유는, 씬에 처음 닿는 길이 탭이기 때문이다.
+ * 탭의 뜻은 브라우저의 것이라 keyIntent에 넣을 수 없지만 "키보드를 쓰기
+ * 시작했다"의 신호로는 가장 흔한 첫 키다.
+ *
+ * 마우스만 쓰는 방문자에게는 keydown 자체가 오지 않으므로 이 함수는 한 번도
+ * 참이 되지 않는다 — 그가 이 안내를 끝내 보지 않는다는 것이 여기서 참이 된다.
+ * (⌘·Ctrl·Alt 조합은 배선(useLayerKeyDown)의 ownsChord에서 이미 걸러지므로
+ * 브라우저 단축키가 이 판정에 닿지 않는다.)
+ */
+export function beginsKeyboardUse(key: string): boolean {
+  return key === 'Tab' || keyIntent(key) !== null
+}
+
+/**
  * 지금 방향키가 도는 항목 목록. 목록이 열려 있으면 목록이고, 닫혀 있으면
  * 씬이다. 작품 페이지에는 도는 항목 목록이 없다 (null).
  *

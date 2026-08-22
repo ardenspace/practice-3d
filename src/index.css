@@ -20,14 +20,18 @@ body {
    prefers-reduced-motion이면 즉시 표시 (지속시간 0). */
 :root {
   --page-enter-ms: 560ms;
+  --hint-enter-ms: 2.4s;
   --hint-enter-delay: 1.6s;
+  --keyboard-hint-enter-ms: 240ms;
   --slide-enter-ms: 320ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
     --page-enter-ms: 0ms;
+    --hint-enter-ms: 0ms;
     --hint-enter-delay: 0s;
+    --keyboard-hint-enter-ms: 0ms;
     --slide-enter-ms: 0ms;
   }
 }
@@ -39,7 +43,9 @@ body {
   }
 }
 
-/* 인터랙션 힌트: 방울들이 자리 잡은 뒤(딜레이) 은은하게 떠오른다. */
+/* 인터랙션 힌트: 방울들이 자리 잡은 뒤(딜레이) 은은하게 떠오른다.
+   키보드 안내(KEYBOARD_HINT_ENTER_ANIMATION)도 같은 페이드를 쓴다 —
+   나타나는 이유만 다르고 나타나는 방식은 한 벌이다 (딜레이 없이 즉시). */
 @keyframes hint-enter {
   from {
     opacity: 0;

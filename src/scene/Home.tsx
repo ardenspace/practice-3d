@@ -19,6 +19,7 @@ import {
 } from '../siteStyles.ts'
 import ErrorBoundary from '../ErrorBoundary.tsx'
 import { focusedByKeyboard } from '../keys/keyTargets.ts'
+import { useKeyboardInUse } from '../keys/useKeyboardInUse.ts'
 import { useSceneKeyNav } from '../keys/useSceneKeyNav.ts'
 import { decideListClose } from '../works/listClose.ts'
 import { WORKS_PATH, workPath, works } from '../works/registry.ts'
@@ -40,6 +41,7 @@ import {
   HINT_ENTER_ANIMATION,
   HOME_TESTID,
   KEYBOARD_HINT,
+  KEYBOARD_HINT_ENTER_ANIMATION,
   SCENE_BUBBLES_LABEL,
   SCENE_FALLBACK_NOTICE,
   SCENE_HINT,
@@ -75,7 +77,9 @@ import { decideSceneFallback, wasRedirectedHere } from './sceneFallback.ts'
 //   (Requirement 31).
 // - 가능 → 씬 셸: backdrop.webp를 CSS 배경으로 깐 풀뷰포트 레이어 위에
 //   투명 R3F Canvas (앰비언트 + 핑크/시안 광원 + 방울 필드 BubbleField).
-//   제목 h1은 씬 위에 오버레이로 유지 (B3 testid 의무 포함).
+//   제목 h1은 씬 위에 오버레이로 유지 (B3 testid 의무 포함). 화면 아래에는
+//   마우스 힌트 한 줄, 그리고 키보드를 쓰기 시작한 방문자에게만 조작법 한
+//   줄이 더 붙는다 (Requirement 43 — 소리 갈래는 아래 정거장의 설명).
 // - 실행 중에 씬이 무너짐: 두 가지다. 캔버스의 webglcontextlost, 그리고 씬이
 //   끝내 올라오지 못하는 것 — 후자의 판정 기준은 "씬 서브트리가 렌더/마운트
 //   중에 던진다"이고 캔버스만 감싼 ErrorBoundary가 받는다. 둘 다 타이머를
@@ -149,16 +153,28 @@ const headerStyle: CSSProperties = {
   pointerEvents: 'none',
 }
 
-// 인터랙션 힌트 — 하단에서 딜레이 뒤 은은하게 떠오른다 (씬 전용 카피,
-// 폴백은 텍스트 링크라 이 힌트가 성립하지 않음).
-const hintStyle: CSSProperties = {
+// 화면 아래의 안내 자리 — 마우스 힌트 한 줄, 그리고 키보드를 쓰기 시작한
+// 방문자에게만 그 아래로 한 줄 더. 두 줄을 한 세로 묶음으로 두는 이유는
+// 각자 절대 위치를 잡으면 문구가 길어져 줄바꿈되는 화면에서 서로를 덮기
+// 때문이다. 묶음이 바닥에 붙고 줄은 위로 쌓인다.
+const hintAreaStyle: CSSProperties = {
   position: 'absolute',
   bottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))',
   left: 0,
   right: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '0.85rem',
+  padding: '0 1.5rem',
+  pointerEvents: 'none',
+}
+
+// 인터랙션 힌트 — 딜레이 뒤 은은하게 떠오른다 (씬 전용 카피,
+// 폴백은 텍스트 링크라 이 힌트가 성립하지 않음).
+const hintStyle: CSSProperties = {
   margin: 0,
   textAlign: 'center',
-  pointerEvents: 'none',
   fontSize: '0.8rem',
   fontWeight: 300,
   letterSpacing: '0.28em',
@@ -166,6 +182,23 @@ const hintStyle: CSSProperties = {
   opacity: 0.6,
   textShadow: `0 0 12px ${COLOR_NEBULA_PURPLE}`,
   animation: HINT_ENTER_ANIMATION,
+}
+
+// 키보드 안내 (Requirement 43의 화면 갈래). 마우스 힌트와 같은 톤이되 한
+// 단계 조용하다 — 조작을 권하는 말이 아니라 이미 시작한 조작의 설명이라
+// 시선을 끌 이유가 없다. 문장이 길어 자간을 좁히고 폭을 묶어 읽을 수 있는
+// 길이로 접는다.
+const keyboardHintStyle: CSSProperties = {
+  margin: 0,
+  maxWidth: '32rem',
+  textAlign: 'center',
+  fontSize: '0.75rem',
+  fontWeight: 300,
+  lineHeight: 1.7,
+  letterSpacing: '0.08em',
+  opacity: 0.5,
+  textShadow: `0 0 12px ${COLOR_NEBULA_PURPLE}`,
+  animation: KEYBOARD_HINT_ENTER_ANIMATION,
 }
 
 // 씬을 띄우지 못해 방문자를 목록으로 옮겼을 때 붙는 안내 (Requirement 36).
@@ -347,6 +380,13 @@ export default function Home() {
     },
     [workBubbleCount],
   )
+
+  // 조작법을 화면에도 내놓을 때가 되었는가 (Requirement 43). 소리 쪽은
+  // 정거장의 설명으로 언제나 있지만, 화면 쪽은 그것을 쓸 사람이 나타난
+  // 뒤여야 한다 — 마우스만 쓰는 방문자에게 키보드 설명은 아무 쓸모 없는
+  // 글자다. "쓰기 시작했다"의 판정은 화면을 모르는 keys/useKeyboardInUse가
+  // 하고 여기는 그 답을 받아 그릴 뿐이다.
+  const keyboardInUse = useKeyboardInUse()
 
   const handleStationBlur = useCallback(() => setSceneFocused(false), [])
   const handlePopHandled = useCallback(() => setPopRequest(null), [])
@@ -606,7 +646,24 @@ export default function Home() {
         <WorksList variant="slide" onDismiss={handleDismiss} />
       ) : (
         <>
-          <p style={hintStyle}>{SCENE_HINT}</p>
+          <div style={hintAreaStyle}>
+            <p style={hintStyle}>{SCENE_HINT}</p>
+            {/* 조작법의 화면 갈래 (Requirement 43). 소리 갈래와 같은 한
+                문장을 쓰므로(KEYBOARD_HINT) 두 갈래가 서로 다른 말을 할 수
+                없다. 목록이 열려 있는 동안에는 마우스 힌트와 함께 사라진다 —
+                지금 조작할 것은 씬이 아니라 목록이다.
+
+                aria-hidden인 이유는 감추려는 것이 아니라 이미 말했기
+                때문이다. 이 문장은 정거장의 설명으로 초점이 닿을 때마다
+                읽힌다 — 여기서 한 번 더 읽히면 소리로 듣는 사람은 같은
+                문장을 두 번 듣는다. 화면에 없던 것을 더해 주는 자리가 아니라
+                소리에 이미 있는 것을 눈으로도 보여 주는 자리다. */}
+            {keyboardInUse && (
+              <p style={keyboardHintStyle} aria-hidden="true">
+                {KEYBOARD_HINT}
+              </p>
+            )}
+          </div>
           <WorksOpenIcon ref={openIconRef} />
         </>
       )}

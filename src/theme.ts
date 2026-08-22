@@ -91,7 +91,14 @@ export function workObjectAlt(title: string, blurb: string): string {
 export const PAGE_ENTER_ANIMATION =
   'page-enter var(--page-enter-ms, 560ms) ease-out both'
 export const HINT_ENTER_ANIMATION =
-  'hint-enter 2.4s ease-out var(--hint-enter-delay, 1.6s) both'
+  'hint-enter var(--hint-enter-ms, 2.4s) ease-out var(--hint-enter-delay, 1.6s) both'
+
+// 키보드 안내가 화면에 들어오는 움직임 (Requirement 43·45). 마우스 힌트와
+// 같은 페이드(hint-enter)를 쓰되 딜레이는 없다 — 이 문구는 방문자가 방금
+// 키를 누른 것에 대한 응답이라 뜸을 들이면 대답이 아니게 된다. 지속시간
+// 변수도 따로 두어 축소 모드에서 0으로 떨어진다 (index.css).
+export const KEYBOARD_HINT_ENTER_ANIMATION =
+  'hint-enter var(--keyboard-hint-enter-ms, 240ms) ease-out both'
 
 // 작품 목록 슬라이드가 씬 위로 열리는 움직임 (B5, 생김새는 위임 구역).
 // keyframes(slide-enter)와 지속시간 변수(--slide-enter-ms)는 index.css에
