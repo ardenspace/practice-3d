@@ -112,8 +112,8 @@ is: 토큰·문구 모듈. 사용자 노출 문구와 색상, 테스트 표식, 
 phase: prev-run (1·2 에서 추가)
 
 path: src/scene/Home.tsx
-is: 홈 씬 호스트이자 `/` 와 `/works` 가 공유하는 셸. 목록이 열렸는지는 `useOutlet()` 으로 안다. 열린 동안 캔버스 층에 `inert`+`aria-hidden`+`pointerEvents:none` 을 걸되 언마운트하지 않는다. 씬 불가·실행 중 상실은 `decideSceneFallback` 의 판정을 배선만 한다. 캔버스 층이 곧 씬의 초점 정거장이다(`tabIndex`, `outline:none`). 커서·정거장 초점 여부·엔터 요청 세 상태를 들고 `BubbleField` 에 내려보낸다. 탭 순서는 DOM 순서 그대로 씬 → 아이콘 → 페이지 밖이고 고리를 만들지 않는다. 빈 등록부에서는 정거장을 두지 않는다.
-phase: prev-run (1·2 에서 개편, 3 에서 초점 정거장)
+is: 홈 씬 호스트이자 `/` 와 `/works` 가 공유하는 셸. 목록이 열렸는지는 `useOutlet()` 으로 안다. 열린 동안 캔버스 층에 `inert`+`aria-hidden`+`pointerEvents:none` 을 걸되 언마운트하지 않는다. 씬 불가·실행 중 상실은 `decideSceneFallback` 의 판정을 배선만 한다. 캔버스 층이 곧 씬의 초점 정거장이다(`tabIndex`, `outline:none`). 커서·정거장 초점 여부·엔터 요청 세 상태를 들고 `BubbleField` 에 내려보낸다. 탭 순서는 DOM 순서 그대로 씬 → 아이콘 → 페이지 밖이고 고리를 만들지 않는다. 빈 등록부에서는 정거장을 두지 않는다. phase 4 에서 보조기술 층을 함께 든다 — 정거장 안에 눈에 보이지 않는 `<ul>` 이 `deriveWorkBubbles(works)` 결과를 그대로 펴고(씬이 소비하는 그 파생 목록 하나를 두 번째 소비자가 딛으므로 개수·순서가 화면과 소리에서 따로 참이 될 수 없다), 정거장에 `role="group"` + 이름 + 조작법 설명이 붙고, 정거장 **밖** `<main>` 직속에 `role="status"` 알림 영역 하나가 세 갈래(목록 열림 / 씬 커서 자리 / 빈 문자열)를 말한다. 목록이 열리면 기존 `inert`+`aria-hidden` 이 이 층까지 덮으므로 뒤 씬이 읽히지 않고, 알림 영역만 밖에 있어 그 순간 "열렸다"를 말할 수 있다.
+phase: prev-run (1·2 에서 개편, 3 에서 초점 정거장, 4 에서 보조기술 층)
 
 path: src/scene/Home.test.tsx
 is: B4 계약 테스트 10 개. 씬 불가 시 `/works` 갈아치기, 중간 화면 없음, `historyAction === REPLACE`, 안내 문구의 두 경우, 작품 링크가 목록 표면 안에만 있을 것을 핀한다. 실행 중 상실과 뒤늦은 복구는 jsdom 에서 핀하지 못했다.
@@ -140,7 +140,7 @@ is: 작품 페이지가 크래시했을 때 무엇을 대신 보여줄지 정하
 phase: prev-run (2 에서 추출)
 
 path: src/siteStyles.ts
-is: 홈과 목록이 공유하는 스타일 조각. `src/scene/homeStyles.ts` 를 대체하며 `src/` 바로 아래로 옮겼다. `works/ → scene/` 역임포트를 막기 위한 위치이므로 다시 인라인 복제하지 않는다.
+is: 홈과 목록이 공유하는 스타일 조각. phase 4 에서 `visuallyHiddenStyle`(1px clip + clip-path — 눈에는 없고 낭독에는 남는 자리. `display:none`·`visibility:hidden` 은 보조기술에서도 사라지므로 쓰지 않는다)을 더했다. `src/scene/homeStyles.ts` 를 대체하며 `src/` 바로 아래로 옮겼다. `works/ → scene/` 역임포트를 막기 위한 위치이므로 다시 인라인 복제하지 않는다.
 phase: prev-run (1 에서 이동)
 
 path: src/scene/constants.ts

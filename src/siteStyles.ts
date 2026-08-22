@@ -52,6 +52,24 @@ export const siteTaglineStyle: CSSProperties = {
   textShadow: `0 0 14px ${COLOR_NEBULA_PURPLE}`,
 }
 
+// 눈에는 없고 보조기술에는 있는 자리 (B6). `display:none`이나
+// `visibility:hidden`은 보조기술에서도 함께 사라지므로 쓸 수 없다 — 1픽셀로
+// 접고 잘라 내는 쪽만이 "화면에는 자리를 차지하지 않고 낭독에는 남는다"를
+// 만든다. `clip`은 옛 브라우저용, `clip-path`는 지금 브라우저용으로 둘 다
+// 둔다. 씬의 방울 목록·조작법·상태 알림이 나눠 쓰므로 여기 한 곳에 있다.
+export const visuallyHiddenStyle: CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  margin: '-1px',
+  padding: 0,
+  border: 0,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  clipPath: 'inset(50%)',
+  whiteSpace: 'nowrap',
+}
+
 // 제목 + 태그라인 묶음 (씬 오버레이·폴백·전체 화면 목록이 같은 수직 리듬을 공유).
 export const siteHeaderStyle: CSSProperties = {
   display: 'flex',

@@ -15,6 +15,7 @@ import {
   siteHeaderStyle,
   siteTaglineStyle,
   siteTitleStyle,
+  visuallyHiddenStyle,
 } from '../siteStyles.ts'
 import ErrorBoundary from '../ErrorBoundary.tsx'
 import { focusedByKeyboard } from '../keys/keyTargets.ts'
@@ -38,11 +39,16 @@ import {
   COLOR_TEXT,
   HINT_ENTER_ANIMATION,
   HOME_TESTID,
+  KEYBOARD_HINT,
+  SCENE_BUBBLES_LABEL,
   SCENE_FALLBACK_NOTICE,
   SCENE_HINT,
+  SCENE_LABEL,
   SITE_TAGLINE,
   SITE_TITLE,
+  WORKS_OPENED_STATUS,
   Z_ABOVE_SCENE,
+  sceneBubbleStatus,
 } from '../theme.ts'
 import BubbleField from './BubbleField.tsx'
 import { deriveWorkBubbles } from './bubbles.ts'
@@ -85,6 +91,13 @@ import { decideSceneFallback, wasRedirectedHere } from './sceneFallback.ts'
 //   라우터도 그 안에 두지 않는다. 키의 뜻을 정하는 일은 keys/keyNav.ts,
 //   그 판정을 창에 이어 붙이는 일은 keys/useSceneKeyNav.ts 몫이고 여기는
 //   상태를 들고 배선만 한다.
+// - 씬을 보조기술에 드러내는 층도 함께 든다 (B6). 3D 캔버스는 그 자체로
+//   아무것도 드러내지 않으므로, 씬이 그리는 것과 같은 파생 목록이 눈에 보이지
+//   않는 <ul>로 한 번 더 존재한다 — 화면에서는 우주에 흩어진 방울이지만
+//   소리로는 등록부 순서의 목록 하나다. 지금 어느 방울에 서 있는지와 목록이
+//   열렸다는 사실은 상태 알림 영역 하나가 말한다. 이 층이 여기 있는 이유는
+//   그것이 전부 이 셸이 이미 들고 있는 상태(커서·정거장 초점·열림)에서만
+//   나오기 때문이다.
 //
 // 한 파일로 두는 이유 (conventions: 300줄 검토 신호): 이 파일이 긴 것은
 // "홈이 무엇이 되는가"의 갈래(씬/폴백/목록 열림)가 하나의 결정이기
@@ -175,6 +188,12 @@ const noticeStyle: CSSProperties = {
   backdropFilter: 'blur(10px)',
   WebkitBackdropFilter: 'blur(10px)',
 }
+
+// 씬 정거장의 설명(조작법)이 사는 요소의 아이디. aria-describedby가 이
+// 아이디로 문구를 찾아 와 이름 뒤에 이어 붙인다 — 화면에 보이지 않는 문구를
+// 초점이 닿을 때마다 읽히게 하는 표준 통로다 (Requirement 43의 "항상").
+// 씬 셸은 화면에 한 번만 뜨므로 고정 아이디로 충분하다.
+const SCENE_KEYBOARD_HINT_ID = 'scene-keyboard-hint'
 
 export default function Home() {
   // 이 방문자에게 씬을 띄울 수 있는가 — 마운트 전에 한 번 프로브하고 그
@@ -325,6 +344,34 @@ export default function Home() {
   const handleStationBlur = useCallback(() => setSceneFocused(false), [])
   const handlePopHandled = useCallback(() => setPopRequest(null), [])
 
+  // ── 소리로 듣는 사람에게 지금 무슨 일이 일어났는가 (B6 ①⑤) ──
+  // 화면 위에서 스스로 말하지 않는 두 사건 — 초점 고리가 다른 방울로 옮겨
+  // 간 것(Requirement 8의 소리 쪽 짝)과 목록이 열린 것(Requirement 21) — 을
+  // 상태 알림 영역 하나가 맡는다. 하나로 두는 이유는 둘이 동시에 일어나지
+  // 않기 때문이다: 목록이 열려 있는 동안 씬은 잠겨 커서가 움직이지 않는다.
+  //
+  // 목록이 열렸다는 사실에 aria-expanded를 쓸 수 없다. 열리면 아이콘 대신
+  // 슬라이드가 그려져 "펼쳐졌다"고 말해 줄 물건이 화면에서 사라지기 때문이다.
+  // 초점을 목록 안으로 끌고 가는 길도 있지만 그쪽은 Requirement 5(페이지가
+  // 열리자마자 초점을 끌어가지 않는다)와 Requirement 20(Esc로 닫으면 초점이
+  // 아이콘으로 돌아간다)이 이미 정해 둔 초점의 길과 겹친다 — 그래서 초점은
+  // 건드리지 않고 말로만 알린다.
+  //
+  // 씬에서 초점이 떠나면 빈 문자열이 된다. 빈 값은 낭독되지 않으므로, 목록을
+  // 닫아 초점이 아이콘으로 돌아간 방문자가 있지도 않은 방울 자리를 다시
+  // 듣는 일이 없다.
+  const focusedBubble =
+    sceneCursor === null ? undefined : workBubbles[sceneCursor]
+  const sceneStatus = worksOpen
+    ? WORKS_OPENED_STATUS
+    : sceneFocused && focusedBubble !== undefined && sceneCursor !== null
+      ? sceneBubbleStatus(
+          focusedBubble.entry.title,
+          sceneCursor,
+          workBubbleCount,
+        )
+      : ''
+
   // 실행 중에 씬이 무너졌다. 컨텍스트 상실과 마운트 실패가 같은 문 하나로
   // 들어온다 — 방문자가 겪는 일이 같기 때문이다: 방금까지 보고 있던 씬 셸이
   // 통째로 사라지고 화면이 작품 목록이 된다.
@@ -446,7 +493,36 @@ export default function Home() {
         onBlur={handleStationBlur}
         inert={worksOpen}
         aria-hidden={worksOpen || undefined}
+        // 정거장이 무엇인지와 어떻게 조작하는지 (B6 ②, Requirement 43).
+        // 이름과 설명은 초점이 닿을 때마다 함께 읽히므로, 조작법은 화면에
+        // 나타나든 말든 소리로는 "항상" 있다. role=group을 얹는 이유는
+        // 이름 없는 div에는 이름·설명이 붙어도 드러나지 않는 보조기술이
+        // 있기 때문이다 — 안에 무엇이 들어 있는 자리라고 말해 준다.
+        role="group"
+        aria-label={SCENE_LABEL}
+        aria-describedby={SCENE_KEYBOARD_HINT_ID}
       >
+        {/* 씬을 보조기술에 드러내는 층 (B6 ①). 눈에는 없고 낭독에는 있다.
+            방울은 캔버스 안에 있어 DOM에 없으므로, 씬이 소비하는 그 파생
+            목록(deriveWorkBubbles)이 여기서 한 번 더 목록이 된다 — 두 곳이
+            같은 파생을 딛고 서므로 "등록 항목 N개 = 방울 N개"와 그 순서가
+            화면과 소리에서 따로 참이 될 수 없다.
+            항목을 링크로 만들지 않는 이유는 씬이 탭 정거장 하나이기
+            때문이다 (Requirement 11) — 작품으로 들어가는 길은 엔터와, 목록을
+            여는 아이콘 쪽에 이미 있다.
+            목록이 열려 있는 동안에는 정거장째 aria-hidden이 되어 이 층도
+            함께 잠긴다 (Requirement 16) — 뒤의 씬과 앞의 목록이 섞여
+            들리지 않는다. */}
+        <div style={visuallyHiddenStyle}>
+          <p id={SCENE_KEYBOARD_HINT_ID}>{KEYBOARD_HINT}</p>
+          {workBubbleCount > 0 && (
+            <ul aria-label={SCENE_BUBBLES_LABEL}>
+              {workBubbles.map((bubble) => (
+                <li key={bubble.entry.slug}>{bubble.entry.title}</li>
+              ))}
+            </ul>
+          )}
+        </div>
         {/* "씬이 끝내 올라오지 못했다"의 판정 기준: 씬 서브트리가 렌더나
             마운트 중에 던진다. 기다리지 않으므로 중간 화면도 지연된 이동도
             없다 (Requirement 35). 잡히면 이 자리는 비우고(fallback={null})
@@ -485,6 +561,13 @@ export default function Home() {
           </Canvas>
         </ErrorBoundary>
       </div>
+      {/* 상태 알림 (B6 ①⑤). 정거장 밖에 두는 이유는 목록이 열리면 정거장이
+          통째로 잠기는데(aria-hidden), 바로 그 순간 "목록이 열렸다"를 말해야
+          하기 때문이다. polite한 자리라 방문자가 읽고 있던 것을 끊지
+          않는다 — 방금 일어난 일을 다 읽은 뒤에 이어서 알려 준다. */}
+      <p role="status" style={visuallyHiddenStyle}>
+        {sceneStatus}
+      </p>
       <header style={headerStyle}>
         <h1 style={siteTitleStyle}>{SITE_TITLE}</h1>
         <p style={siteTaglineStyle}>{SITE_TAGLINE}</p>
