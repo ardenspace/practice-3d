@@ -51,8 +51,15 @@ seam** 이다. jsdom 에는 WebGL 이 없고 있다고 속이면 R3F 캔버스�
 - 슬라이드의 닫힘 동작(Esc·바깥 클릭, Requirement 16–21)을 B5 가 핀해야
   하는가. 지금은 핀 목록에 없어서 `onClose` 가 props 타입에 없고, 뒤 스텝이
   더하게 된다.
+- 슬라이드가 `main` 랜드마크를 절대 그리지 않는다는 것을 계약으로 핀해야
+  하는가. 슬라이드가 홈 위에 열려 있는 동안 씬 쪽 `main` 이 유일한 `main`
+  으로 남는 문제다. 지금 variant 분기는 제목·태그라인 유무만 핀되어 있다.
 
 ## Gotchas
+
+- **`/works` 라우트 요소는 `<WorksList variant="fullscreen" />` 하나로 둔다.**
+  `fullscreen` 이 이미 `<main>` 을 그리므로 바깥에서 또 감싸면 `main` 이
+  둘이 된다.
 
 - **jsdom 은 언제나 WebGL 이 없다.** `isWebGLAvailable()` 이 항상 false 라
   테스트는 늘 "씬을 못 띄우는" 경로를 탄다. 페이즈 2 이후에는 그 경로가

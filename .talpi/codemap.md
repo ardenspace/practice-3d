@@ -12,7 +12,13 @@
   `COLOR_ACCENT_CYAN`, `COLOR_TEXT`), `LONG_PRESS_MS`(250 — 탭/길게
   누르기 임계값의 유일한 소스), `WORK_ERROR_MESSAGE`(사용자 노출 실패
   문구는 여기만), `WORKS_EMPTY_MESSAGE`(등록부가 비었을 때 목록이 보이는
-  문구, phase 1 에서 추가), `BACK_TO_HOME_LABEL`, 전환 애니메이션 축약값
+  문구, phase 1 에서 추가), `WORKS_LIST_LABEL`, `WORKS_TESTID`(`'works'` —
+  목록 화면의 자기 표식이자 라우팅 테스트가 `/` 와 `/works` 를 가르는 심),
+  `workObjectAlt(title, blurb)`(오브제 이미지 설명을 등록부 값에서 파생.
+  문자열만 받아 토큰 모듈이 등록부를 임포트하지 않는다), 슬라이드·카드 색상
+  (`COLOR_SLIDE_SURFACE/EDGE/SHADOW`, `COLOR_CARD_SURFACE/EDGE`),
+  `SLIDE_ENTER_ANIMATION` — 이상 phase 1 에서 추가.
+  `BACK_TO_HOME_LABEL`, 전환 애니메이션 축약값
   `PAGE_ENTER_ANIMATION`/`HINT_ENTER_ANIMATION`(keyframes 와 CSS 변수
   정의는 `src/index.css`, 인라인 style 은 이 상수로만 참조).
 - `src/scene/constants.ts` — 방울 씬 상수 모듈. 카메라 z/fov, 라이트 리그,
@@ -65,17 +71,26 @@
   호버 상태, 팝 단계(idle→burst→gone), 터치 배선. 파일 안 공용으로
   `dampTo`, `useHoverCursor`, `useObjetTexture`, `useBubbleGeometry`,
   `PopBurst`. 판정 로직은 `touch.ts` 에 있고 여기엔 배선만 둔다.
-- `src/scene/homeStyles.ts` — Home 과 HomeFallback 이 공유하는 스타일 조각.
-  `backdropStyle`, `homeTitleStyle`, `homeTaglineStyle`, `homeHeaderStyle`.
-  다시 인라인 복제하지 않는다.
+- `src/siteStyles.ts` — 홈과 목록이 공유하는 스타일 조각. `backdropStyle`,
+  `siteTitleStyle`, `siteTaglineStyle`, `siteHeaderStyle`. phase 1 스텝 2 에서
+  `src/scene/homeStyles.ts` 를 대체하며 `src/` 바로 아래로 옮겼다. 씬이
+  목록을 임포트하게 되므로 공유 조각이 `scene/` 에 남으면 `works/ → scene/`
+  역임포트가 생긴다. 다시 인라인 복제하지 않는다.
 
 ## 작품 목록 표면 (이번 런)
 
 - `src/works/WorksList.tsx` — 온 사이트에서 작품 목록을 그리는 유일한 모듈
   (phase 1). 표현 분기를 `variant: 'slide' | 'fullscreen'` prop 으로 바깥에서
   받고, 등록부를 `entries?: readonly WorkEntry[]` 로 주입받으며 기본값은
-  `works` 다. 씬을 마운트하지 않고 두 모습을 각각 렌더할 수 있다. phase 1
-  스텝 1 시점에는 공개 표면만 있고 본문은 비어 있다.
+  `works` 다. 씬을 마운트하지 않고 두 모습을 각각 렌더할 수 있다. 항목
+  하나는 카드이고 카드 전체를 `/works/<slug>` 로 가는 react-router `Link` 가
+  감싼다. 이미지 로드가 실패하면 카드별 상태로 `<img>` 를 접고 오브제 자리
+  틀은 남긴다. `fullscreen` 은 `<main>` 에 제목·태그라인을 이고, `slide` 는
+  이름 붙은 `<section>` 으로 목록만 그린다(phase 1 스텝 2 에서 구현).
+- `src/index.css` — 전역 CSS. 기존 `page-enter`/`hint-enter` 에 더해 phase 1
+  스텝 2 가 `slide-enter` keyframes 와 `--slide-enter-ms`(320ms)를 넣었다.
+  `prefers-reduced-motion` 에서 0ms 로 접힌다. CSS 모션은 여기 `@media` 가
+  맡고 `src/scene/reducedMotion.ts` 는 R3F 프레임 루프 모션 몫이다.
 - `src/works/WorksList.test.tsx` — B5 계약 테스트 10 개 (phase 1). 항목 수·
   순서, 등록부 파생(제목·소개·이미지 경로·링크 주소), 이미지 실패 시 텍스트
   유지, 빈 등록부 문구, 슬라이드·전체 화면의 제목·태그라인 유무를 핀한다.

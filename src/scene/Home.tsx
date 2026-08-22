@@ -2,6 +2,12 @@ import { Canvas } from '@react-three/fiber'
 import { useCallback, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
 import type { WebGLRenderer } from 'three'
+import {
+  backdropStyle,
+  siteHeaderStyle,
+  siteTaglineStyle,
+  siteTitleStyle,
+} from '../siteStyles.ts'
 import { workPath } from '../works/registry.ts'
 import {
   COLOR_ACCENT_CYAN,
@@ -23,12 +29,6 @@ import {
   POINT_LIGHT_PINK_POSITION,
 } from './constants.ts'
 import HomeFallback from './HomeFallback.tsx'
-import {
-  backdropStyle,
-  homeHeaderStyle,
-  homeTaglineStyle,
-  homeTitleStyle,
-} from './homeStyles.ts'
 
 // 홈 씬 호스트 (B4 분기의 단일 지점).
 // - 마운트 전 isWebGLAvailable()로 WebGL을 프로브한다. 불가 →
@@ -58,7 +58,7 @@ const canvasLayerStyle: CSSProperties = {
 
 // 제목 + 태그라인 오버레이 (씬 위, 포인터 통과).
 const headerStyle: CSSProperties = {
-  ...homeHeaderStyle,
+  ...siteHeaderStyle,
   position: 'absolute',
   top: '2.5rem',
   left: 0,
@@ -134,8 +134,8 @@ export default function Home() {
         </Canvas>
       </div>
       <header style={headerStyle}>
-        <h1 style={homeTitleStyle}>{SITE_TITLE}</h1>
-        <p style={homeTaglineStyle}>{SITE_TAGLINE}</p>
+        <h1 style={siteTitleStyle}>{SITE_TITLE}</h1>
+        <p style={siteTaglineStyle}>{SITE_TAGLINE}</p>
       </header>
       <p style={hintStyle}>{SCENE_HINT}</p>
     </main>
